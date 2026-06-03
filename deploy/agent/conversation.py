@@ -1,0 +1,60 @@
+from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
+from config.settings import client
+
+
+def conversation(state):
+    if not state["retrieved_chunks"]:
+        return {
+            "conversation_history": state["conversation_history"] + [
+                AIMessage(content="I couldn't find relevant information in your BMW manual for this query. Please consult a certified BMW technician.")
+            ]
+        }
+
+    context = "\n\n".join([
+        f"Page {chunk['metadata'].get('page_number', 'unknown')}:\n{chunk['content']}"
+        for chunk in state["retrieved_chunks"]
+    ])
+
+    user_type = state["user_type"]
+    citation_text = "\n".join([
+    f"- Page {c['page']}, Section {c['section']}"
+    for c in state["citations"]])
+
+    if user_type == "owner":
+        system_prompt = f"""You are a BMW service manual assistant helping a car owner.
+                        Use simple, non-technical language. Avoid jargon.
+                        Always recommend visiting a certified BMW service center for repairs.
+                        Base your answer only on the provided manual context.
+                        Reference these manual sections: {citation_text}
+                        Keep the response concise and under 150 words."""
+
+    else:
+        system_prompt = f"""You are a BMW service manual assistant helping a certified technician.
+                        Use precise technical language. Include specifications, torque values, and part references where available.
+                        Always cite the page number from the manual context in your response.
+                        Base your answer only on the provided manual context.
+                        Reference these manual sections: {citation_text}"""
+                        
+
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            *[{"role": "user" if isinstance(m, HumanMessage) else "assistant", "content": m.content} 
+                for m in state["conversation_history"]],
+			
+            {"role": "user", "content": f"{state['query']}\n\nContext:\n{context}"}
+        ]
+    )
+
+    answer = response.choices[0].message.content.strip()
+    
+    if state["confidence_score"] > 0.7:
+        answer += "\n\n⚠️ Note: This answer is based on limited matches from the manual. Please verify with a certified BMW technician."
+
+    return {
+        "conversation_history": state["conversation_history"] + [
+            HumanMessage(content=state["query"]),
+            AIMessage(content=answer)
+        ]
+    }
