@@ -1,6 +1,0 @@
-.env
-BMW_RAG_db/
-images/
-__pycache__/
-*.pyc
-*.pkl

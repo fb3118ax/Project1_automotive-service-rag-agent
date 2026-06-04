@@ -1,9 +1,23 @@
 from agent.state import AgentState
 from config.settings import client
+from langchain_core.messages import HumanMessage # added because providing history (enriched_query) to the agent with current one
 
 
 def classifier (state):
     VALID_ROUTES = ["text", "table", "both", "unknown"]
+    # added enriched_history for follow-up questions
+    history = state["conversation_history"]
+    if history:
+    # get last 2 messages
+        recent = history[-2:] if len(history) >= 2 else history
+        context = "\n".join([
+            f"{'User' if isinstance(m, HumanMessage) else 'Assistant'}: {m.content}"
+            for m in recent
+        ])
+        enriched_query = f"Previous exchange:\n{context}\n\nCurrent query: {state['query']}"
+    else:
+        enriched_query = state["query"]
+
     response = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
@@ -28,13 +42,10 @@ def classifier (state):
                         locations, purchase advice, non-automotive topics.
                         Any query about vehicle symptoms, warnings, maintenance, 
                         repairs, or parts belongs to text/table/both."""},
-                {"role": "user", "content": state["query"]}
-                ]
-                
-                )
+                {"role": "user", "content": enriched_query}
+                ])
     
     intent = response.choices[0].message.content.strip().lower()
-    
     if intent not in VALID_ROUTES:
         intent = "unknown"
     return {"intent": intent}
