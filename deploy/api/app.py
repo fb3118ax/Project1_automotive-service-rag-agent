@@ -19,7 +19,7 @@ class QueryResponse(BaseModel):
     confidence_score: float
 
 @api.post("/query")
-def query(request: QueryRequest):
+async def query(request: QueryRequest):
     result = agent_app.invoke({
     "query": request.query,
     "user_type": request.user_type,
