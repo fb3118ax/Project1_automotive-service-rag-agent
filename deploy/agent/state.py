@@ -11,7 +11,7 @@ class AgentState(TypedDict):
     user_type: str
     query: str
     intent: str
-    retrieved_chunks: Annotated[list[dict], operator.add]  # ✅ merge parallel writes
+    retrieved_chunks: Annotated[list[dict], operator.add]  # merge parallel writes
     confidence_score: float
     conversation_history: Annotated[list[BaseMessage], operator.add] 
     citations: Annotated[list[Citation], operator.add]  

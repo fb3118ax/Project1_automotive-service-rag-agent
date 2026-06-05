@@ -1,5 +1,5 @@
 from agent.state import AgentState
-from config.settings import client
+from config.settings import client, LLM_MODEL
 from langchain_core.messages import HumanMessage # added because providing history (enriched_query) to the agent with current one
 
 
@@ -19,7 +19,7 @@ def classifier (state):
         enriched_query = state["query"]
 
     response = client.chat.completions.create(
-                model="gpt-4o",
+                model= LLM_MODEL,
                 messages=[
                 {"role": "system", "content": """You are a routing assistant for a BMW service manual.
                         Given a user query, decide which data source to search.

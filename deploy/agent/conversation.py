@@ -1,5 +1,5 @@
 from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
-from config.settings import client
+from config.settings import client, LLM_MODEL, CONFIDENCE_THRESHOLD, OWNER_MAX_WORDS
 
 
 def conversation(state):
@@ -26,7 +26,7 @@ def conversation(state):
                         Always recommend visiting a certified BMW service center for repairs.
                         Base your answer only on the provided manual context.
                         Reference these manual sections: {citation_text}
-                        Keep the response concise and under 150 words."""
+                        Keep the response concise and under {OWNER_MAX_WORDS} words."""
 
     else:
         system_prompt = f"""You are a BMW service manual assistant helping a certified technician.
@@ -37,7 +37,7 @@ def conversation(state):
                         
 
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model= LLM_MODEL,
         messages=[
             {"role": "system", "content": system_prompt},
             *[{"role": "user" if isinstance(m, HumanMessage) else "assistant", "content": m.content} 
@@ -49,7 +49,7 @@ def conversation(state):
 
     answer = response.choices[0].message.content.strip()
     
-    if state["confidence_score"] > 0.7:
+    if state["confidence_score"] > CONFIDENCE_THRESHOLD:
         answer += "\n\n⚠️ Note: This answer is based on limited matches from the manual. Please verify with a certified BMW technician."
 
     return {

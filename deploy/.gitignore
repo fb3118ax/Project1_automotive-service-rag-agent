@@ -1,9 +1,7 @@
 *.pdf
 *.pkl
 *.ipynb
-*.sqlite3
 Architecture/
-images/
 .env
 __pycache__/
 *.pyc

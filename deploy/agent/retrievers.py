@@ -1,10 +1,10 @@
-from config.settings import text_store, table_store
+from config.settings import text_store, table_store, RETRIEVAL_K
 from agent.state import AgentState
 
 
 def text_retriever(state):
     
-    results = text_store.similarity_search_with_score(state["query"], k=5)
+    results = text_store.similarity_search_with_score(state["query"], k=RETRIEVAL_K)
     chunks = []  
     for doc, score in results:
         chunks.append({ 
@@ -17,7 +17,7 @@ def text_retriever(state):
 
 
 def table_retriever(state):
-    results = table_store.similarity_search_with_score(state["query"], k=5)
+    results = table_store.similarity_search_with_score(state["query"], k=RETRIEVAL_K)
     chunks = []  
     for doc, score in results:
         chunks.append({ 
