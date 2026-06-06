@@ -4,7 +4,7 @@ uvicorn==0.47.0
 pydantic==2.13.4
 pydantic-settings==2.14.1
 python-dotenv
-echo "better-profanity"
+better-profanity
 
 # LangChain / LangGraph
 langchain==1.3.1
