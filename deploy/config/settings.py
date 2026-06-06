@@ -47,3 +47,10 @@ table_store = Chroma(
     embedding_function=embedding_model
 )
 
+# ── PATTERNS ───────────────────────────────────────────────────────────────────
+INJECTION_PATTERNS = [
+    "ignore previous instructions",
+    "ignore all instructions",
+    "you are now",
+    "forget your instructions",
+    "disregard your instructions"]

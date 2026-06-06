@@ -11,6 +11,8 @@ class AgentState(TypedDict):
     user_type: str
     query: str
     intent: str
+    guardrail_status: str
+    guardrail_response: str
     # retrieved_chunks: Annotated[list[dict], operator.add]  # merge parallel writes, no longer needed as no table in manual sp, plain list
     retrieved_chunks: list[dict]  # plain list for text retrival only
     confidence_score: float
