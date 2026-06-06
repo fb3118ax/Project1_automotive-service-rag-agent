@@ -10,7 +10,7 @@ from agent.output_guardrail import output_guardrail
 
 def route_after_input_guard(state):
     if state["guardrail_status"] == "pass":
-        return "classifier"
+        return "pass"
     return "blocked_input"
 
 def route_intent(state):
