@@ -1,6 +1,10 @@
+import tiktoken
 from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
-from config.settings import client, LLM_MODEL, CONFIDENCE_THRESHOLD, OWNER_MAX_WORDS
+from config.settings import client, LLM_MODEL, CONFIDENCE_THRESHOLD, OWNER_MAX_WORDS, TOKEN_LIMIT
 
+enc = tiktoken.encoding_for_model("gpt-4o")
+def count_tokens(text):
+        return len(enc.encode(text))
 
 def conversation(state):
     if not state["retrieved_chunks"]:
@@ -35,26 +39,35 @@ def conversation(state):
                         Base your answer only on the provided manual context.
                         Reference these manual sections: {citation_text}"""
                         
-
+    # tiktoken = token limit check before sending to LLM 
+            
+    history_text = " ".join([m.content for m in state["conversation_history"]])
+    total_tokens = count_tokens(system_prompt + history_text + context + state["query"])
+    history = state["conversation_history"]
+    while total_tokens > TOKEN_LIMIT and len(history) > 0:
+        history = history[2:]  # remove oldest human+assistant pair
+        history_text = " ".join([m.content for m in history])
+        total_tokens = count_tokens(system_prompt + history_text + context + state["query"])
+    
+    
     response = client.chat.completions.create(
-        model= LLM_MODEL,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            *[{"role": "user" if isinstance(m, HumanMessage) else "assistant", "content": m.content} 
-                for m in state["conversation_history"]],
-			
-            {"role": "user", "content": f"{state['query']}\n\nContext:\n{context}"}
-        ]
-    )
+                model= LLM_MODEL,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    *[{"role": "user" if isinstance(m, HumanMessage) else "assistant", "content": m.content} 
+                        for m in history],
+                    
+                    {"role": "user", "content": f"{state['query']}\n\nContext:\n{context}"}])
 
     answer = response.choices[0].message.content.strip()
-    
+        
     if state["confidence_score"] > CONFIDENCE_THRESHOLD:
         answer += "\n\n⚠️ Note: This answer is based on limited matches from the manual. Please verify with a certified BMW technician."
 
     return {
-        "conversation_history": state["conversation_history"] + [
-            HumanMessage(content=state["query"]),
-            AIMessage(content=answer)
-        ]
-    }
+            "conversation_history": state["conversation_history"] + [
+                HumanMessage(content=state["query"]),
+                AIMessage(content=answer)
+            ]
+        }
+  
