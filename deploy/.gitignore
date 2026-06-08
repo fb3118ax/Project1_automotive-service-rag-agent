@@ -5,3 +5,4 @@ Architecture/
 .env
 __pycache__/
 *.pyc
+images/

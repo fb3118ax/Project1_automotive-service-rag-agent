@@ -49,3 +49,7 @@ CHUNK_OVERLAP = 200
 
 # ── EXTRACTED_IMAGES ───────────────────────────────────────────────────────────────────
 EXTRACTED_IMAGES = "processed_images.pkl"
+
+# ── EXTRACTED_IMAGES_DESCRIPTION_COLLECTION ──────────────────────────────────────────────
+
+IMAGE_COLLECTION = os.getenv("IMAGE_COLLECTION", "image_chunks")
