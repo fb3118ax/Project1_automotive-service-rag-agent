@@ -1,7 +1,5 @@
-import chromadb
 import os
 from langchain_openai import OpenAIEmbeddings
-from langchain_chroma import Chroma
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -33,19 +31,6 @@ OWNER_MAX_WORDS = int(os.getenv("OWNER_MAX_WORDS", "150"))
 
 # ── Clients ───────────────────────────────────────────────────────────────────
 embedding_model = OpenAIEmbeddings(model=EMBEDDING_MODEL)
-client_db = chromadb.PersistentClient(path=DB_PATH)
-
-text_store = Chroma(
-    client=client_db,
-    collection_name=TEXT_COLLECTION,
-    embedding_function=embedding_model
-)
-
-table_store = Chroma(
-    client=client_db,
-    collection_name=TABLE_COLLECTION,
-    embedding_function=embedding_model
-)
 
 # ── PATTERNS ───────────────────────────────────────────────────────────────────
 INJECTION_PATTERNS = [
@@ -54,3 +39,13 @@ INJECTION_PATTERNS = [
     "you are now",
     "forget your instructions",
     "disregard your instructions"]
+
+# ── SOURCE_PDFS ───────────────────────────────────────────────────────────────────
+DATA_FOLDER = os.getenv("DATA_FOLDER", "./data")
+
+# ── CHUNKS ───────────────────────────────────────────────────────────────────
+CHUNK_SIZE = 2000
+CHUNK_OVERLAP = 200
+
+# ── EXTRACTED_IMAGES ───────────────────────────────────────────────────────────────────
+EXTRACTED_IMAGES = "processed_images.pkl"
