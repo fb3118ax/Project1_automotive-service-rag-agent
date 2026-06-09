@@ -24,6 +24,7 @@ async def query(request: QueryRequest):
     result = agent_app.invoke({
     "query": request.query,
     "user_type": request.user_type,
+    "query_variations": [],
     "conversation_history": sessions.get(request.session_id, []),  # loaded from sessions dict
     "intent": "",
     "guardrail_status": "",    

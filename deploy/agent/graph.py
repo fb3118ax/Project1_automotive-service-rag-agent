@@ -7,10 +7,11 @@ from agent.confidence_score import confidence_score
 from agent.conversation import conversation
 from agent.input_guardrail import input_guardrail
 from agent.output_guardrail import output_guardrail
+from agent.query_expansion import query_expansion
 
 def route_after_input_guard(state):
     if state["guardrail_status"] == "pass":
-        return "pass"
+        return ["classifier", "query_expansion"]
     return "blocked_input"
 
 def route_intent(state):
@@ -24,10 +25,10 @@ def route_intent(state):
     else:
         return "text_retriever"
     
-
 graph = StateGraph(AgentState)
 graph.add_node('input_guardrail', input_guardrail)
 graph.add_node('classifier', classifier)
+graph.add_node('query_expansion', query_expansion)
 graph.add_node('text_retriever', text_retriever)   
 graph.add_node('unknown_handler', unknown_handler)   
 graph.add_node("confidence", confidence_score)
@@ -40,11 +41,12 @@ graph.add_conditional_edges(
     route_after_input_guard,     
     {
         "blocked_input": END,
-        "pass": "classifier"
+        "classifier": "classifier",
+        "query_expansion": "query_expansion"
     }
 )
 graph.add_conditional_edges(
-    "classifier",      
+    "classifier",
     route_intent,      
     {
         "text_retriever": "text_retriever",        
@@ -52,6 +54,7 @@ graph.add_conditional_edges(
     }
 )
 
+graph.add_edge('query_expansion', 'text_retriever')
 graph.add_edge('text_retriever', 'confidence')   
 graph.add_edge('unknown_handler', END)
 graph.add_edge('confidence', 'conversation') 

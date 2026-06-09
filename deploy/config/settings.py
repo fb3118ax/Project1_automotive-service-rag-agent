@@ -55,3 +55,6 @@ IMAGE_COLLECTION = os.getenv("IMAGE_COLLECTION", "image_chunks")
 
 # ── TOKEN_LIMIT ───────────────────────────────────────────────────────────────────
 TOKEN_LIMIT = 120000
+
+# ── QUERY_VARIATIONS ───────────────────────────────────────────────────────────────────
+QUERY_VARIATIONS_LIMIT = 3
