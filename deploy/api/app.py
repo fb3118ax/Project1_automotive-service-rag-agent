@@ -1,9 +1,18 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from agent.graph import app as agent_app
 from agent.state import Citation
 
-api = FastAPI() # FastAPI() creates your web application instance.
+api = FastAPI()
+
+api.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://mechai-frontend.vercel.app"],  # replace with your actual Vercel URL
+    allow_methods=["POST"],
+    allow_headers=["Content-Type"],
+)
+
 sessions: dict = {}
 
 # Request — what client sends
