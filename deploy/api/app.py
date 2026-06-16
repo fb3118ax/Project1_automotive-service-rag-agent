@@ -8,7 +8,7 @@ api = FastAPI()
 
 api.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://mechai-frontend.vercel.app"],  # replace with your actual Vercel URL
+    allow_origins=["https://project1-automotive-service-rag-age.vercel.app/"],  # replace with your actual Vercel URL
     allow_methods=["POST"],
     allow_headers=["Content-Type"],
 )
