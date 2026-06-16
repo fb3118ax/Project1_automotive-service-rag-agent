@@ -4,6 +4,7 @@ import { useChat } from './hooks/useChat'
 import Sidebar from './components/Sidebar'
 import MessageBubble from './components/MessageBubble'
 import InputBar from './components/InputBar'
+import ModeSelect from './components/ModeSelect'
 
 function TypingIndicator() {
   return (
@@ -30,19 +31,22 @@ function SlowServerWarning() {
 }
 
 export default function App() {
-  const { messages, loading, slowServer, userType, send, newConversation, newSessionOnModeSwitch } = useChat()
+  const { messages, loading, slowServer, userType, send, newConversation, selectMode } = useChat()
   const bottomRef = useRef(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
 
+  if (!userType) {
+    return <ModeSelect onSelect={selectMode} />
+  }
+
   return (
     <div className="h-screen flex bg-[#0f0f0f] overflow-hidden">
       <Sidebar
-    userType={userType}
-    onModeSwitch={newSessionOnModeSwitch}
-    onNewConversation={newConversation}
+        userType={userType}
+        onNewConversation={newConversation}
       />
 
       <div className="flex flex-col flex-1 min-w-0">

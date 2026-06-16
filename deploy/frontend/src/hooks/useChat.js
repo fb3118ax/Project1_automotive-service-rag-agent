@@ -9,9 +9,15 @@ export function useChat() {
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)
   const [slowServer, setSlowServer] = useState(false)
-  const [userType, setUserType] = useState('owner')
+  const [userType, setUserType] = useState(null)
   const sessionId = useRef(newSessionId())
   const slowTimer = useRef(null)
+
+  const selectMode = useCallback((mode) => {
+    setUserType(mode)
+    sessionId.current = newSessionId()
+    setMessages([])
+  }, [])
 
   const send = useCallback(async (query) => {
     if (!query.trim() || loading) return
@@ -58,17 +64,12 @@ export function useChat() {
   }, [loading, userType])
 
   const newConversation = useCallback(() => {
+    setUserType(null)
     sessionId.current = newSessionId()
     setMessages([])
     setLoading(false)
     setSlowServer(false)
   }, [])
 
-  const newSessionOnModeSwitch= useCallback((newType) => {
-    setUserType(newType)
-    sessionId.current = newSessionId()
-    setMessages([])
-}, [])
-
-  return { messages, loading, slowServer, userType, send, newConversation, newSessionOnModeSwitch}
+  return { messages, loading, slowServer, userType, send, newConversation, selectMode }
 }

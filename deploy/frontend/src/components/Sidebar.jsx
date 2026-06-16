@@ -1,6 +1,8 @@
 import { Wrench, User, Settings, Plus } from 'lucide-react'
 
-export default function Sidebar({ userType, onModeSwitch, onNewConversation }) {
+export default function Sidebar({ userType, onNewConversation }) {
+  const isOwner = userType === 'owner'
+
   return (
     <div className="w-52 border-r border-white/10 flex flex-col bg-[#141414] flex-shrink-0">
       <div className="p-4 border-b border-white/10 flex items-center gap-2">
@@ -13,31 +15,15 @@ export default function Sidebar({ userType, onModeSwitch, onNewConversation }) {
         </div>
       </div>
 
-      <div className="px-3 pt-3 pb-1 text-[11px] text-white/30 uppercase tracking-wide">
-        User Mode
+      <div className="px-3 pt-4 pb-2">
+        <div className="text-[11px] text-white/30 uppercase tracking-wide mb-2">Current Mode</div>
+        <div className="flex items-center gap-2 px-3 py-2 bg-blue-600/20 border border-blue-500/20 rounded-lg">
+          {isOwner
+            ? <User size={14} className="text-blue-400" />
+            : <Settings size={14} className="text-blue-400" />}
+          <span className="text-sm text-blue-300 font-medium capitalize">{userType}</span>
+        </div>
       </div>
-
-      <button
-        onClick={() => onModeSwitch('owner')}
-        className={`flex items-center gap-2 px-4 py-2 text-sm w-full text-left transition-colors
-          ${userType === 'owner'
-            ? 'bg-blue-600 text-white font-medium'
-            : 'text-white/50 hover:bg-white/5'}`}
-      >
-        <User size={15} />
-        Owner
-      </button>
-
-      <button
-        onClick={() => onModeSwitch('technician')}
-        className={`flex items-center gap-2 px-4 py-2 text-sm w-full text-left transition-colors
-          ${userType === 'technician'
-            ? 'bg-blue-600 text-white font-medium'
-            : 'text-white/50 hover:bg-white/5'}`}
-      >
-        <Settings size={15} />
-        Technician
-      </button>
 
       <div className="mt-auto p-3">
         <button
