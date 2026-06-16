@@ -30,11 +30,12 @@ class QueryResponse(BaseModel):
 
 @api.post("/query")
 async def query(request: QueryRequest):
+    session_key = f"{request.session_id}_{request.user_type}"
     result = agent_app.invoke({
     "query": request.query,
     "user_type": request.user_type,
     "query_variations": [],
-    "conversation_history": sessions.get(request.session_id, []),  # loaded from sessions dict
+    "conversation_history": sessions.get(session_key, []),  # loaded from sessions dict
     "intent": "",
     "guardrail_status": "",    
     "guardrail_response": "", 
@@ -47,10 +48,10 @@ async def query(request: QueryRequest):
         last_message = result["guardrail_response"]
     elif result["guardrail_status"] == "blocked_output":
         last_message = result["guardrail_response"]
-        sessions[request.session_id] = result["conversation_history"] 
+        sessions[session_key] = result["conversation_history"] 
     else:
         last_message = result["conversation_history"][-1].content #That line reads the last message from the result. It does not save anything, This READS the last AIMessage content to return as the answer
-        sessions[request.session_id] = result["conversation_history"] #This SAVES the full updated history back into sessions
+        sessions[session_key] = result["conversation_history"] #This SAVES the full updated history back into sessions
     return QueryResponse(
     answer=last_message,
     citations=result["citations"],

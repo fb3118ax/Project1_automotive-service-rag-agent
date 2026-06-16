@@ -64,5 +64,11 @@ export function useChat() {
     setSlowServer(false)
   }, [])
 
-  return { messages, loading, slowServer, userType, setUserType, send, newConversation }
+  const newSessionOnModeSwitch= useCallback((newType) => {
+    setUserType(newType)
+    sessionId.current = newSessionId()
+    setMessages([])
+}, [])
+
+  return { messages, loading, slowServer, userType, send, newConversation, newSessionOnModeSwitch}
 }

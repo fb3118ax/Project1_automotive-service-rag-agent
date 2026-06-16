@@ -1,6 +1,6 @@
 import { Wrench, User, Settings, Plus } from 'lucide-react'
 
-export default function Sidebar({ userType, setUserType, onNewConversation }) {
+export default function Sidebar({ userType, onModeSwitch, onNewConversation }) {
   return (
     <div className="w-52 border-r border-white/10 flex flex-col bg-[#141414] flex-shrink-0">
       <div className="p-4 border-b border-white/10 flex items-center gap-2">
@@ -18,7 +18,7 @@ export default function Sidebar({ userType, setUserType, onNewConversation }) {
       </div>
 
       <button
-        onClick={() => setUserType('owner')}
+        onClick={() => onModeSwitch('owner')}
         className={`flex items-center gap-2 px-4 py-2 text-sm w-full text-left transition-colors
           ${userType === 'owner'
             ? 'bg-blue-600 text-white font-medium'
@@ -29,7 +29,7 @@ export default function Sidebar({ userType, setUserType, onNewConversation }) {
       </button>
 
       <button
-        onClick={() => setUserType('technician')}
+        onClick={() => onModeSwitch('technician')}
         className={`flex items-center gap-2 px-4 py-2 text-sm w-full text-left transition-colors
           ${userType === 'technician'
             ? 'bg-blue-600 text-white font-medium'
