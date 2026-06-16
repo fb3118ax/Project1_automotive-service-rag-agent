@@ -1,5 +1,4 @@
 from config.settings import RETRIEVAL_K, embedding_model, TABLE_COLLECTION, TEXT_COLLECTION,DB_PATH
-from agent.state import AgentState
 from langchain_chroma import Chroma
 import chromadb
 

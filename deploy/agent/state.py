@@ -4,7 +4,7 @@ import operator
 
 class Citation(TypedDict):
     page: int
-    section: str
+    # section: str
     source: str
 
 class AgentState(TypedDict):

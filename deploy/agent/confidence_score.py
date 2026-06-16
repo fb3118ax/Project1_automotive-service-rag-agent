@@ -10,7 +10,7 @@ def confidence_score (state):
     for chunk in chunks:
         citation.append({
                 "page": chunk["metadata"].get("page_number"),
-                "section": chunk["metadata"].get("section"),
+                # "section": chunk["metadata"].get("section"),
                 "source": chunk["metadata"].get("source_file")
             })              
     return {"confidence_score" : avg_score, "citations" : citation}

@@ -21,7 +21,7 @@ def conversation(state):
 
     user_type = state["user_type"]
     citation_text = "\n".join([
-    f"- Page {c['page']}, Section {c['section']}"
+    f"- Page {c['page']}"
     for c in state["citations"]])
 
     if user_type == "owner":
@@ -29,7 +29,7 @@ def conversation(state):
                         Use simple, non-technical language. Avoid jargon.
                         Always recommend visiting a certified BMW service center for repairs.
                         Base your answer only on the provided manual context.
-                        Reference these manual sections: {citation_text}
+                        Reference these manual pages: {citation_text}
                         Keep the response concise and under {OWNER_MAX_WORDS} words."""
 
     else:
@@ -37,7 +37,7 @@ def conversation(state):
                         Use precise technical language. Include specifications, torque values, and part references where available.
                         Always cite the page number from the manual context in your response.
                         Base your answer only on the provided manual context.
-                        Reference these manual sections: {citation_text}"""
+                        Reference these manual pages: {citation_text}"""
                         
     # tiktoken = token limit check before sending to LLM 
             

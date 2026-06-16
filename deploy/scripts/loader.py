@@ -47,7 +47,7 @@ def loader_doc():
                                 page_content=texts,
                                     metadata={
                                         "page_number": page.page_number,
-                                        "section": f"page_{page.page_number}",
+                                        # "section": f"page_{page.page_number}",
                                         "chunk_type": "text",
                                         "source_file": file
                                         # "image_path": {image_path} # image only
@@ -59,7 +59,7 @@ def loader_doc():
                                 page_content=str(table),
                                     metadata={
                                         "page_number": page.page_number,
-                                        "section": f"page_{page.page_number}",
+                                        # "section": f"page_{page.page_number}",
                                         "chunk_type": "table",
                                         "source_file": file
                                         # "image_path": {image_path} # image only
@@ -78,7 +78,7 @@ def loader_doc():
                                     page_content=f"images/page_{page.page_number}_image_{i}.png",
                                     metadata={
                                         "page_number": page.page_number,
-                                        "section": f"page_{page.page_number}",
+                                        # "section": f"page_{page.page_number}",
                                         "chunk_type": "image_description",
                                         "source_file": file,
                                         "image_path": image_path # image for only
