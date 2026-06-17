@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { FileText, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
 
 function ConfidenceBadge({ score }) {
   if (score === null) return null
@@ -30,8 +31,8 @@ export default function MessageBubble({ message }) {
           {content}
         </div>
       ) : (
-        <div className={`bg-[#1e1e1e] text-white/90 text-sm px-4 py-2.5 rounded-2xl rounded-bl-sm leading-relaxed border border-white/10 ${error ? 'text-red-400' : ''}`}>
-          {content}
+        <div className={`bg-[#1e1e1e] text-white/90 text-sm px-4 py-2.5 rounded-2xl rounded-bl-sm leading-relaxed border border-white/10 ${error ? 'text-red-400' : ''} prose prose-invert prose-sm max-w-none`}>
+          <ReactMarkdown>{content}</ReactMarkdown>
         </div>
       )}
 
@@ -50,10 +51,6 @@ export default function MessageBubble({ message }) {
                 : `Pages ${citations.map(c => c.page).join(', ')}`}
               {citationsOpen ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
             </button>
-          )}
-
-          {guardrail && (
-            <span className="text-[11px] text-white/30">Guardrail triggered</span>
           )}
         </div>
       )}
