@@ -54,7 +54,7 @@ EXTRACTED_IMAGES = "processed_images.pkl"
 IMAGE_COLLECTION = os.getenv("IMAGE_COLLECTION", "image_chunks")
 
 # ── TOKEN_LIMIT ───────────────────────────────────────────────────────────────────
-TOKEN_LIMIT = 120000
+TOKEN_LIMIT = 20000
 
 # ── QUERY_VARIATIONS ───────────────────────────────────────────────────────────────────
 QUERY_VARIATIONS_LIMIT = 3
