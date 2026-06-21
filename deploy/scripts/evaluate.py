@@ -3,17 +3,19 @@ scripts/evaluate.py
 
 Runs the MechAI pipeline against the generated testset and evaluates using RAGAS.
 Scores: faithfulness, answer_relevancy, context_precision, context_recall
+Posts per-sample RAGAS scores as feedback to LangSmith.
 
 Usage:
     python scripts/evaluate.py
 
 Requirements:
-    pip install ragas
+    pip install ragas langsmith
 """
 
 import os
 import json
 import sys
+import uuid
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -26,6 +28,8 @@ from ragas import evaluate
 from ragas.metrics import faithfulness, answer_relevancy, context_precision, context_recall
 from ragas.dataset_schema import SingleTurnSample, EvaluationDataset
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_core.runnables import RunnableConfig
+from langsmith import Client as LangSmithClient
 
 # RunConfig import varies by RAGAS version — handle both
 try:
@@ -34,24 +38,32 @@ except ImportError:
     from ragas import RunConfig
 
 # ── Config ────────────────────────────────────────────────────────────────────
-TESTSET_PATH    = os.path.join(os.path.dirname(__file__), "testset.json")
-OUTPUT_PATH     = os.path.join(os.path.dirname(__file__), "ragas_results.json")
-LLM_MODEL       = os.getenv("LLM_MODEL", "gpt-4o")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
-USER_TYPE       = "technician"   # technician = full answers, better for eval
+TESTSET_PATH      = os.path.join(os.path.dirname(__file__), "testset.json")
+OUTPUT_PATH       = os.path.join(os.path.dirname(__file__), "ragas_results.json")
+LLM_MODEL         = os.getenv("LLM_MODEL", "gpt-4o")
+EMBEDDING_MODEL   = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+LANGCHAIN_API_KEY = os.getenv("LANGCHAIN_API_KEY")
+USER_TYPE         = "technician"   # technician = full answers, better for eval
+
+# LangSmith client — posts RAGAS scores as feedback on each traced run
+langsmith_client = LangSmithClient(api_key=LANGCHAIN_API_KEY)
 
 
 # ── Pipeline runner ───────────────────────────────────────────────────────────
 def run_pipeline(question: str) -> dict:
     """
     Invoke the LangGraph agent exactly as the /query endpoint does.
-    Returns: answer (str), retrieved_contexts (list[str])
+    Captures run_id so RAGAS scores can be posted back to LangSmith as feedback.
+    Returns: answer (str), retrieved_contexts (list[str]), run_id (str)
     """
+    run_id = str(uuid.uuid4())
+    config = RunnableConfig(run_id=run_id)
+
     result = agent_app.invoke({
         "query":                question,
         "user_type":            USER_TYPE,
         "query_variations":     [],
-        "conversation_history": [],       # fresh session per question
+        "conversation_history": [],
         "intent":               "",
         "guardrail_status":     "",
         "guardrail_response":   "",
@@ -59,7 +71,7 @@ def run_pipeline(question: str) -> dict:
         "confidence_score":     0.0,
         "citations":            [],
         "image_paths":          []
-    })
+    }, config=config)
 
     # Extract answer — same logic as app.py
     if result["guardrail_status"] in ("blocked_input", "blocked_output"):
@@ -73,12 +85,17 @@ def run_pipeline(question: str) -> dict:
     # Strip appended warning before RAGAS evaluation
     answer = answer.split("\n\n⚠️ Note:")[0].strip()
 
-    return {"answer": answer, "contexts": contexts}
+    return {"answer": answer, "contexts": contexts, "run_id": run_id}
 
 
 # ── Build RAGAS dataset ───────────────────────────────────────────────────────
-def build_evaluation_dataset(testset: list[dict]) -> EvaluationDataset:
-    samples = []
+def build_evaluation_dataset(testset: list[dict]) -> tuple[EvaluationDataset, list[str]]:
+    """
+    Runs pipeline for each question and builds RAGAS dataset.
+    Also returns run_ids in same order as samples for LangSmith feedback.
+    """
+    samples  = []
+    run_ids  = []
 
     for i, entry in enumerate(testset):
         print(f"  Running pipeline for Q{i+1}/{len(testset)}: {entry['question'][:60]}...")
@@ -95,9 +112,10 @@ def build_evaluation_dataset(testset: list[dict]) -> EvaluationDataset:
             reference=entry["ground_truth"],
         )
         samples.append(sample)
+        run_ids.append(result["run_id"])
 
     print(f"\nBuilt evaluation dataset with {len(samples)} samples")
-    return EvaluationDataset(samples=samples)
+    return EvaluationDataset(samples=samples), run_ids
 
 
 # ── Run RAGAS evaluation ──────────────────────────────────────────────────────
@@ -114,6 +132,39 @@ def run_evaluation(dataset: EvaluationDataset) -> dict:
         run_config=RunConfig(max_workers=2, timeout=120),
     )
     return results
+
+
+# ── Post scores to LangSmith ──────────────────────────────────────────────────
+def post_feedback_to_langsmith(results, run_ids: list[str]) -> None:
+    """
+    Post per-sample RAGAS scores as feedback on each LangSmith run.
+    This links evaluation scores directly to the traces in the dashboard.
+    """
+    metrics = {
+        "faithfulness":      results["faithfulness"],
+        "answer_relevancy":  results["answer_relevancy"],
+        "context_precision": results["context_precision"],
+        "context_recall":    results["context_recall"],
+    }
+
+    print("\nPosting RAGAS scores to LangSmith...")
+    for i, run_id in enumerate(run_ids):
+        for metric_name, scores in metrics.items():
+            # scores is a list (one per sample) in newer RAGAS versions
+            score = scores[i] if isinstance(scores, list) else float(scores)
+            if score is None:
+                continue
+            try:
+                langsmith_client.create_feedback(
+                    run_id=run_id,
+                    key=metric_name,
+                    score=float(score),
+                    comment=f"RAGAS {metric_name} for Q{i+1}"
+                )
+            except Exception as e:
+                print(f"  Warning: Could not post {metric_name} for run {run_id}: {e}")
+
+    print(f"  Posted scores for {len(run_ids)} runs across {len(metrics)} metrics")
 
 
 # ── Save + display results ────────────────────────────────────────────────────
@@ -161,8 +212,8 @@ def main():
         testset = json.load(f)
     print(f"Loaded {len(testset)} test cases from testset.json\n")
 
-    # Build dataset by running pipeline on each question
-    dataset = build_evaluation_dataset(testset)
+    # Build dataset by running pipeline on each question — captures run_ids
+    dataset, run_ids = build_evaluation_dataset(testset)
 
     if len(dataset.samples) == 0:
         raise RuntimeError("No valid samples to evaluate. Check your pipeline and ChromaDB.")
@@ -170,7 +221,10 @@ def main():
     # Run RAGAS
     results = run_evaluation(dataset)
 
-    # Save and display
+    # Post per-sample scores to LangSmith as feedback
+    post_feedback_to_langsmith(results, run_ids)
+
+    # Save and display aggregate results
     save_results(results, OUTPUT_PATH)
 
 
