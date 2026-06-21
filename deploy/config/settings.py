@@ -18,7 +18,6 @@ EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 # ── ChromaDB ──────────────────────────────────────────────────────────────────
 DB_PATH = os.getenv("CHROMA_DB_PATH", "./BMW_RAG_db")
 TEXT_COLLECTION = os.getenv("TEXT_COLLECTION", "text_chunks")
-TABLE_COLLECTION = os.getenv("TABLE_COLLECTION", "table_chunks")
 
 # ── Retrieval ─────────────────────────────────────────────────────────────────
 RETRIEVAL_K = int(os.getenv("RETRIEVAL_K", "5"))

@@ -4,7 +4,7 @@ from langchain_core.messages import HumanMessage # added because providing histo
 
 
 def classifier (state):
-    VALID_ROUTES = ["text", "table", "both", "unknown"]
+    VALID_ROUTES = ["text", "both", "unknown"]
     # added enriched_history for follow-up questions
     history = state["conversation_history"]
     if history:
@@ -29,10 +29,6 @@ def classifier (state):
                         fluid types and specifications (e.g. which oil to use), 
                         component descriptions, operating instructions
                  
-                        table: numerical specs, exact measurements, torque values (e.g. 25 Nm), 
-                        service intervals (e.g. every 10,000 miles), scheduled maintenance dates, 
-                        fault/error codes, fluid capacities in exact quantities
-  
                         both: multiple symptoms, diagnostic queries, anything where 
                         the answer needs both an explanation AND a spec value, 
                         strange noises, car not starting, complex issues

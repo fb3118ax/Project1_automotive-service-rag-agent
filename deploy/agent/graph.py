@@ -17,9 +17,7 @@ def route_after_input_guard(state):
 def route_intent(state):
     intent = state["intent"]
     if intent == "both":
-        return "text_retriever"  # no real tables in this manual
-    elif intent == "table":
-        return "text_retriever"  # no real tables in this manual
+        return "text_retriever" 
     elif intent == "unknown":
         return "unknown_handler"
     else:
