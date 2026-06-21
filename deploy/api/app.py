@@ -1,10 +1,18 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from agent.graph import app as agent_app
-from agent.state import Citation
+
+# ── Rate Limiter ───────────────────────────────────────────────────────────────
+limiter = Limiter(key_func=get_remote_address)
 
 api = FastAPI()
+api.state.limiter = limiter
+api.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 api.add_middleware(
     CORSMiddleware,
@@ -26,35 +34,38 @@ class QueryResponse(BaseModel):
     answer: str
     citations: list
     confidence_score: float
-    guardrail_response : str
+    guardrail_response: str
 
 @api.post("/query")
-async def query(request: QueryRequest):
-    session_key = f"{request.session_id}_{request.user_type}"
+@limiter.limit("5/minute")           # max 5 requests per minute per IP
+async def query(request: Request, body: QueryRequest):
+    session_key = f"{body.session_id}_{body.user_type}"
     result = agent_app.invoke({
-    "query": request.query,
-    "user_type": request.user_type,
-    "query_variations": [],
-    "conversation_history": sessions.get(session_key, []),  # loaded from sessions dict
-    "intent": "",
-    "guardrail_status": "",    
-    "guardrail_response": "", 
-    "retrieved_chunks": [],
-    "confidence_score": 0.0,
-    "citations": [],
-    "image_paths": []
+        "query": body.query,
+        "user_type": body.user_type,
+        "query_variations": [],
+        "conversation_history": sessions.get(session_key, []),
+        "intent": "",
+        "guardrail_status": "",
+        "guardrail_response": "",
+        "retrieved_chunks": [],
+        "confidence_score": 0.0,
+        "citations": [],
+        "image_paths": []
     })
+
     if result["guardrail_status"] == "blocked_input":
         last_message = result["guardrail_response"]
     elif result["guardrail_status"] == "blocked_output":
         last_message = result["guardrail_response"]
-        sessions[session_key] = result["conversation_history"] 
+        sessions[session_key] = result["conversation_history"]
     else:
-        last_message = result["conversation_history"][-1].content #That line reads the last message from the result. It does not save anything, This READS the last AIMessage content to return as the answer
-        sessions[session_key] = result["conversation_history"] #This SAVES the full updated history back into sessions
+        last_message = result["conversation_history"][-1].content
+        sessions[session_key] = result["conversation_history"]
+
     return QueryResponse(
-    answer=last_message,
-    citations=result["citations"],
-    confidence_score=result["confidence_score"],
-    guardrail_response=result["guardrail_response"] 
-)
+        answer=last_message,
+        citations=result["citations"],
+        confidence_score=result["confidence_score"],
+        guardrail_response=result["guardrail_response"]
+    )
