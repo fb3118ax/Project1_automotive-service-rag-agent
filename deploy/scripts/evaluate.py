@@ -44,6 +44,8 @@ LLM_MODEL         = os.getenv("LLM_MODEL", "gpt-4o")
 EMBEDDING_MODEL   = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 LANGCHAIN_API_KEY = os.getenv("LANGCHAIN_API_KEY")
 USER_TYPE         = "technician"   # technician = full answers, better for eval
+NUM_SAMPLES       = 5              # keep low to minimize token usage
+CONTEXT_CHAR_LIMIT = 500          # truncate contexts before passing to RAGAS
 
 # LangSmith client — posts RAGAS scores as feedback on each traced run
 langsmith_client = LangSmithClient(api_key=LANGCHAIN_API_KEY)
@@ -79,8 +81,8 @@ def run_pipeline(question: str) -> dict:
     else:
         answer = result["conversation_history"][-1].content
 
-    # Extract retrieved contexts — list of chunk content strings
-    contexts = [chunk["content"] for chunk in result.get("retrieved_chunks", [])]
+    # Extract retrieved contexts — truncated to limit RAGAS token usage
+    contexts = [chunk["content"][:CONTEXT_CHAR_LIMIT] for chunk in result.get("retrieved_chunks", [])]
 
     # Strip appended warning before RAGAS evaluation
     answer = answer.split("\n\n⚠️ Note:")[0].strip()
@@ -210,7 +212,9 @@ def main():
 
     with open(TESTSET_PATH, "r", encoding="utf-8") as f:
         testset = json.load(f)
-    print(f"Loaded {len(testset)} test cases from testset.json\n")
+    print(f"Loaded {len(testset)} test cases from testset.json")
+    testset = testset[:NUM_SAMPLES]
+    print(f"Using {len(testset)} samples for evaluation\n")
 
     # Build dataset by running pipeline on each question — captures run_ids
     dataset, run_ids = build_evaluation_dataset(testset)

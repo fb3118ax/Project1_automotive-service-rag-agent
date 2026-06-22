@@ -50,7 +50,7 @@ def conversation(state):
         total_tokens = count_tokens(system_prompt + history_text + context + state["query"])
     
     
-    response = client.chat.completions.create(
+    response = client.chat.completions.create(  
                 model= LLM_MODEL,
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -61,9 +61,9 @@ def conversation(state):
 
     answer = response.choices[0].message.content.strip()
         
-    if state["confidence_score"] > CONFIDENCE_THRESHOLD:
+    if state["confidence_score"] < CONFIDENCE_THRESHOLD:
         answer += "\n\n⚠️ Note: This answer is based on limited matches from the manual. Please verify with a certified BMW technician."
-
+    
     return {
             "conversation_history": state["conversation_history"] + [
                 HumanMessage(content=state["query"]),
