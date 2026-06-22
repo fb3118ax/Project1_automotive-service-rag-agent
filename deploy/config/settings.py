@@ -20,7 +20,7 @@ DB_PATH = os.getenv("CHROMA_DB_PATH", "./BMW_RAG_db")
 TEXT_COLLECTION = os.getenv("TEXT_COLLECTION", "text_chunks")
 
 # ── Retrieval ─────────────────────────────────────────────────────────────────
-RETRIEVAL_K = int(os.getenv("RETRIEVAL_K", "5"))
+RETRIEVAL_K = int(os.getenv("RETRIEVAL_K", "4"))
 
 # ── Confidence ────────────────────────────────────────────────────────────────
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.7"))
@@ -56,4 +56,4 @@ IMAGE_COLLECTION = os.getenv("IMAGE_COLLECTION", "image_chunks")
 TOKEN_LIMIT = 20000
 
 # ── QUERY_VARIATIONS ───────────────────────────────────────────────────────────────────
-QUERY_VARIATIONS_LIMIT = 3
+QUERY_VARIATIONS_LIMIT = 2

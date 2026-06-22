@@ -45,7 +45,7 @@ EMBEDDING_MODEL   = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 LANGCHAIN_API_KEY = os.getenv("LANGCHAIN_API_KEY")
 USER_TYPE         = "technician"   # technician = full answers, better for eval
 NUM_SAMPLES       = 5              # keep low to minimize token usage
-CONTEXT_CHAR_LIMIT = 500          # truncate contexts before passing to RAGAS
+CONTEXT_CHAR_LIMIT = None          # truncate contexts before passing to RAGAS
 
 # LangSmith client — posts RAGAS scores as feedback on each traced run
 langsmith_client = LangSmithClient(api_key=LANGCHAIN_API_KEY)
@@ -82,7 +82,7 @@ def run_pipeline(question: str) -> dict:
         answer = result["conversation_history"][-1].content
 
     # Extract retrieved contexts — truncated to limit RAGAS token usage
-    contexts = [chunk["content"][:CONTEXT_CHAR_LIMIT] for chunk in result.get("retrieved_chunks", [])]
+    contexts = [chunk["content"] for chunk in result.get("retrieved_chunks", [])]
 
     # Strip appended warning before RAGAS evaluation
     answer = answer.split("\n\n⚠️ Note:")[0].strip()
