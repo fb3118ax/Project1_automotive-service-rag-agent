@@ -6,3 +6,5 @@ Architecture/
 __pycache__/
 *.pyc
 images/
+BMW_RAG_db/**/*.bin
+BMW_RAG_db/**/length.bin
