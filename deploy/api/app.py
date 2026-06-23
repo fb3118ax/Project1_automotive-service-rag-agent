@@ -17,7 +17,7 @@ api.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 api.add_middleware(
     CORSMiddleware,
     allow_origins=["https://project1-automotive-service-rag-age.vercel.app"],
-    allow_methods=["POST"],
+    allow_methods=["POST", "OPTIONS"],
     allow_headers=["Content-Type"],
 )
 
