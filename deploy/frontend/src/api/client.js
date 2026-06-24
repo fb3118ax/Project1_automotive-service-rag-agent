@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL || 'https://project1-automotive-service-rag-agent.onrender.com'
+const BASE_URL = 'https://mechai-backend.delightfulsea-af823488.centralindia.azurecontainerapps.io'
 
 export async function sendQuery({ query, session_id, user_type }) {
   const response = await fetch(`${BASE_URL}/query`, {
