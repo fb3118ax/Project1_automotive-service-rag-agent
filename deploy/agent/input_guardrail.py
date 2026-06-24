@@ -29,5 +29,10 @@ def input_guardrail(state):
                 "guardrail_status": "blocked_input",
                 "guardrail_response": "Only to answer sevice related questions"
             }  
+    elif query.strip().lower() in GREETINGS:
+        return {
+        "guardrail_status": "blocked_input",
+        "guardrail_response": "Hi! I'm MechAI, your BMW service manual assistant. Ask me anything about your BMW — maintenance, warnings, specifications, or procedures."
+            }
     else:
         return {"guardrail_status": "pass", "guardrail_response": ""}

@@ -57,3 +57,6 @@ TOKEN_LIMIT = 20000
 
 # ── QUERY_VARIATIONS ───────────────────────────────────────────────────────────────────
 QUERY_VARIATIONS_LIMIT = 2
+
+# ── GREETINGS ───────────────────────────────────────────────────────────────────
+GREETINGS = {"hi", "hello", "hey", "howdy", "hiya", "sup", "good morning", "good evening", "good afternoon"}
