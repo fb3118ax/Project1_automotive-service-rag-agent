@@ -24,6 +24,11 @@ def route_intent(state):
         return "text_retriever"
 
 
+def route_after_output_guard(state):
+    """Don't show images if output was blocked."""
+    return END
+
+
 graph = StateGraph(AgentState)
 graph.add_node('input_guardrail',  input_guardrail)
 graph.add_node('classifier',       classifier)
@@ -51,15 +56,16 @@ graph.add_conditional_edges(
     "classifier",
     route_intent,
     {
-        "text_retriever": "text_retriever",
+        "text_retriever":  "text_retriever",
         "unknown_handler": "unknown_handler"
     }
 )
 
+# image_retriever runs in parallel with text_retriever via query_expansion
 graph.add_edge('query_expansion',  'text_retriever')
-graph.add_edge('query_expansion',  'image_retriever')  # parallel with text_retriever
+graph.add_edge('query_expansion',  'image_retriever')
 graph.add_edge('text_retriever',   'confidence')
-graph.add_edge('image_retriever',  'confidence')       # both feed into confidence
+graph.add_edge('image_retriever',  'confidence')
 graph.add_edge('unknown_handler',  END)
 graph.add_edge('confidence',       'conversation')
 graph.add_edge('conversation',     'output_guardrail')

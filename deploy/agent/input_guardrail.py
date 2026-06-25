@@ -1,6 +1,6 @@
 from better_profanity import profanity
 profanity.load_censor_words()  
-from config.settings import INJECTION_PATTERNS, GREETINGS
+from config.settings import INJECTION_PATTERNS, GREETINGS, OFF_TOPIC_KEYWORDS
 
 def input_guardrail(state):
     query = state["query"]
@@ -34,5 +34,10 @@ def input_guardrail(state):
         "guardrail_status": "blocked_input",
         "guardrail_response": "Hi! I'm MechAI, your service manual assistant. Ask me anything about your car — maintenance, warnings, specifications, or procedures."
             }
+    elif any(keyword in query.lower() for keyword in OFF_TOPIC_KEYWORDS):
+        return {
+            "guardrail_status": "blocked_input",
+            "guardrail_response": "I can only answer questions about your BMW vehicle — maintenance, warnings, specifications, and procedures."
+        }
     else:
         return {"guardrail_status": "pass", "guardrail_response": ""}

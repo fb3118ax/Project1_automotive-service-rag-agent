@@ -21,7 +21,7 @@ def conversation(state):
         for chunk in state["retrieved_chunks"]
     ])
 
-    user_type    = state["user_type"]
+    user_type     = state["user_type"]
     citation_text = "\n".join([f"- Page {c['page']}" for c in state["citations"]])
 
     if user_type == "owner":
@@ -62,12 +62,16 @@ def conversation(state):
     if state["confidence_score"] < CONFIDENCE_THRESHOLD:
         answer += "\n\n⚠️ Note: This answer is based on limited matches from the manual. Please verify with a certified BMW technician."
 
-    # Append relevant image URLs if available
-    image_paths = state.get("image_paths", [])
-    if image_paths:
-        image_links = "\n".join([f"![Image]({url})" for url in image_paths[:3]])  # max 3 images
-        answer += f"\n\n**Relevant Images:**\n{image_links}"
+    # Only provide image if asked for :
+    query_lower = state["query"].lower()
+    explicit_image_request = any(word in query_lower for word in [
+        "show", "image", "picture", "diagram", "look like", "photo", "visual", "illustrate"
+        ])
 
+    image_paths = state.get("image_paths", [])
+    if image_paths and explicit_image_request:
+        image_links = "\n".join([f"![Image]({url})" for url in image_paths[:3]])
+        answer += f"\n\n**Relevant Images:**\n{image_links}"
     return {
         "conversation_history": state["conversation_history"] + [
             HumanMessage(content=state["query"]),
