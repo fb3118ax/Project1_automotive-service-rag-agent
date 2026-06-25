@@ -60,3 +60,10 @@ QUERY_VARIATIONS_LIMIT = 2
 
 # ── GREETINGS ───────────────────────────────────────────────────────────────────
 GREETINGS = {"hi", "hello", "hey", "howdy", "hiya", "sup", "good morning", "good evening", "good afternoon"}
+
+# ── OFF TOPIC KEYWORDS ───────────────────────────────────────────────────────────────────
+OFF_TOPIC_KEYWORDS = [
+    "joke", "riddle", "funny", "stock price", "share price",
+    "how much does", "buy a bmw", "dealer", "dealership",
+    "weather", "recipe", "sports", "movie", "music"
+]
