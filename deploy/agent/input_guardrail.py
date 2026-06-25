@@ -1,6 +1,6 @@
 from better_profanity import profanity
 profanity.load_censor_words()  
-from config.settings import INJECTION_PATTERNS
+from config.settings import INJECTION_PATTERNS, GREETINGS
 
 def input_guardrail(state):
     query = state["query"]
@@ -32,7 +32,7 @@ def input_guardrail(state):
     elif query.strip().lower() in GREETINGS:
         return {
         "guardrail_status": "blocked_input",
-        "guardrail_response": "Hi! I'm MechAI, your BMW service manual assistant. Ask me anything about your BMW — maintenance, warnings, specifications, or procedures."
+        "guardrail_response": "Hi! I'm MechAI, your service manual assistant. Ask me anything about your car — maintenance, warnings, specifications, or procedures."
             }
     else:
         return {"guardrail_status": "pass", "guardrail_response": ""}

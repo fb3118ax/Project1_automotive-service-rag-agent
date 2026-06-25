@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -9,7 +8,6 @@ from agent.graph import app as agent_app
 from langchain_core.messages import HumanMessage, AIMessage
 from azure.cosmos import CosmosClient, exceptions
 import os
-import json
 
 # ── Rate Limiter ───────────────────────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address)
@@ -24,8 +22,8 @@ api.add_middleware(
         "https://project1-automotive-service-rag-age.vercel.app",
         "https://project1-automotive-service-rag-agent-etro5jdmh.vercel.app"
     ],
-    allow_methods=["POST"],
-    allow_headers=["Content-Type"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ── Cosmos DB ─────────────────────────────────────────────────────────────────
