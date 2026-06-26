@@ -62,15 +62,10 @@ def conversation(state):
     if state["confidence_score"] < CONFIDENCE_THRESHOLD:
         answer += "\n\n⚠️ Note: This answer is based on limited matches from the manual. Please verify with a certified BMW technician."
 
-    # Only provide image if asked for :
-    query_lower = state["query"].lower()
-    explicit_image_request = any(word in query_lower for word in [
-        "show", "image", "picture", "diagram", "look like", "photo", "visual", "illustrate"
-        ])
 
     image_paths = state.get("image_paths", [])
-    if image_paths and explicit_image_request:
-        image_links = "\n".join([f"![Image]({url})" for url in image_paths[:3]])
+    if image_paths:
+        image_links = "\n".join([f"![Image]({url})" for url in image_paths])
         answer += f"\n\n**Relevant Images:**\n{image_links}"
     return {
         "conversation_history": state["conversation_history"] + [

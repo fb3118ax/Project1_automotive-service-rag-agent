@@ -61,10 +61,8 @@ graph.add_conditional_edges(
     }
 )
 
-# image_retriever runs in parallel with text_retriever via query_expansion
 graph.add_edge('query_expansion',  'text_retriever')
-graph.add_edge('query_expansion',  'image_retriever')
-graph.add_edge('text_retriever',   'confidence')
+graph.add_edge('text_retriever',   'image_retriever')
 graph.add_edge('image_retriever',  'confidence')
 graph.add_edge('unknown_handler',  END)
 graph.add_edge('confidence',       'conversation')

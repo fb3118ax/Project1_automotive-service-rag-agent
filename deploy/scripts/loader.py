@@ -35,8 +35,8 @@ def loader_doc():
             # file_name = file.replace(".pdf", "")
             with pdfplumber.open(f"{DATA_FOLDER}/{file}") as pdf:
                 
-                if os.path.exists("images"):
-                    shutil.rmtree("images")                
+                # if os.path.exists("images"):
+                #     shutil.rmtree("images")                
                 os.makedirs("images", exist_ok=True)
                 for page in pdf.pages:
                     if page.page_number <= 21 or page.page_number >= 460:
@@ -47,24 +47,12 @@ def loader_doc():
                                 page_content=texts,
                                     metadata={
                                         "page_number": page.page_number,
-                                        # "section": f"page_{page.page_number}",
+                                        
                                         "chunk_type": "text",
                                         "source_file": file
-                                        # "image_path": {image_path} # image only
+                                        
                                         }))
                                     
-                    tables = page.extract_tables()
-                    for i, table in enumerate(tables):
-                        table_doc.append(Document(
-                                page_content=str(table),
-                                    metadata={
-                                        "page_number": page.page_number,
-                                        # "section": f"page_{page.page_number}",
-                                        "chunk_type": "table",
-                                        "source_file": file
-                                        # "image_path": {image_path} # image only
-                                        }
-                                    ))
                     images = [img for img in page.images if img["srcsize"][0] >= 100 and img["srcsize"][1] >= 100]                        
                     for i, img in enumerate(images):
                         try:
@@ -78,7 +66,6 @@ def loader_doc():
                                     page_content=f"images/page_{page.page_number}_image_{i}.png",
                                     metadata={
                                         "page_number": page.page_number,
-                                        # "section": f"page_{page.page_number}",
                                         "chunk_type": "image_description",
                                         "source_file": file,
                                         "image_path": image_path # image for only

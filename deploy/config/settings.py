@@ -23,7 +23,7 @@ TEXT_COLLECTION = os.getenv("TEXT_COLLECTION", "text_chunks")
 RETRIEVAL_K = int(os.getenv("RETRIEVAL_K", "4"))
 
 # ── Confidence ────────────────────────────────────────────────────────────────
-CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.7"))
+CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.4"))
 
 # ── Conversation ──────────────────────────────────────────────────────────────
 OWNER_MAX_WORDS = int(os.getenv("OWNER_MAX_WORDS", "150"))
@@ -65,5 +65,13 @@ GREETINGS = {"hi", "hello", "hey", "howdy", "hiya", "sup", "good morning", "good
 OFF_TOPIC_KEYWORDS = [
     "joke", "riddle", "funny", "stock price", "share price",
     "how much does", "buy a bmw", "dealer", "dealership",
-    "weather", "recipe", "sports", "movie", "music"
+    "weather", "recipe", "sports", "movie", "music", "bomb"
 ]
+
+# ── IMAGE DISPLAY ──────────────────────────────────────────────────────────────────────
+IMAGE_REQUEST_KEYWORDS = [
+    "show", "image", "picture", "diagram", "look like", "photo", "visual", "illustrate"
+]
+IMAGE_CANDIDATE_K = 4   # raw-query candidates pulled per query variation, BEFORE rerank
+IMAGE_MAX_RESULTS = 5   # upper bound on images shown, AFTER rerank — was a hardcoded
+                        

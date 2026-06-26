@@ -5,7 +5,7 @@ from scripts.loader import loader_doc
 from scripts.chunker import chunker
 from scripts.image_processor import image_processor
 from scripts.vector_store import vector_store
-from config.settings import EXTRACTED_IMAGES, TEXT_COLLECTION, TABLE_COLLECTION, IMAGE_COLLECTION
+from config.settings import EXTRACTED_IMAGES, TEXT_COLLECTION, IMAGE_COLLECTION
 
 def main():
     # parse --rebuild flag
@@ -41,10 +41,6 @@ def main():
     # step 5 — store in vector DB
     print("Storing in ChromaDB...")
     vector_store(text_chunks, TEXT_COLLECTION, rebuild=args.rebuild)
-    if table_doc:
-        vector_store(table_doc, TABLE_COLLECTION, rebuild=False)
-    else:
-        print("No tables found, skipping table collection.")  # no real tables, store as-is
     vector_store(image_chunks, IMAGE_COLLECTION, rebuild=args.rebuild)
 
     print("Ingestion complete.")
