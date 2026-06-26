@@ -59,27 +59,25 @@ def deserialize_history(history: list) -> list:
     return result
 
 
-def get_session(session_key: str) -> list:
-    """Load conversation history from Cosmos DB."""
+def get_session(session_key: str) -> tuple[list, str]:
     try:
         item = cosmos_container.read_item(item=session_key, partition_key=session_key)
-        return deserialize_history(item.get("history", []))
+        return deserialize_history(item.get("history", [])), item.get("current_topic", "")
     except exceptions.CosmosResourceNotFoundError:
-        return []
+        return [], ""
     except Exception:
-        return []
+        return [], ""
 
-
-def save_session(session_key: str, history: list) -> None:
-    """Save conversation history to Cosmos DB."""
+def save_session(session_key: str, history: list, current_topic: str) -> None:
     try:
         cosmos_container.upsert_item({
-            "id":          session_key,
-            "session_key": session_key,
-            "history":     serialize_history(history)
+            "id":            session_key,
+            "session_key":   session_key,
+            "history":       serialize_history(history),
+            "current_topic": current_topic
         })
     except Exception:
-        pass  # session save failure should not break the response
+        pass
 
 
 # ── Request / Response ────────────────────────────────────────────────────────
@@ -102,8 +100,7 @@ class QueryResponse(BaseModel):
 async def query(request: Request, body: QueryRequest):
     session_key = f"{body.session_id}_{body.user_type}"
 
-    # Load history from Cosmos DB
-    conversation_history = get_session(session_key)
+    conversation_history, current_topic = get_session(session_key)
 
     result = agent_app.invoke({
         "query":                body.query,
@@ -116,6 +113,7 @@ async def query(request: Request, body: QueryRequest):
         "retrieved_chunks":     [],
         "confidence_score":     0.0,
         "citations":            [],
+        "current_topic":        current_topic,
         "image_paths":          []
     })
 
@@ -123,10 +121,10 @@ async def query(request: Request, body: QueryRequest):
         last_message = result["guardrail_response"]
     elif result["guardrail_status"] == "blocked_output":
         last_message = result["guardrail_response"]
-        save_session(session_key, result["conversation_history"])
+        save_session(session_key, result["conversation_history"], result.get("current_topic", ""))
     else:
         last_message = result["conversation_history"][-1].content
-        save_session(session_key, result["conversation_history"])
+        save_session(session_key, result["conversation_history"], result.get("current_topic", ""))
 
     return QueryResponse(
         answer=last_message,
