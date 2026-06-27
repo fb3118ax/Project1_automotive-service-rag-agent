@@ -10,12 +10,8 @@ def count_tokens(text):
 
 def _format_caption(caption: str, user_type: str) -> str:
     clean = caption.strip().strip('*')
-    if user_type == "owner":
-        sentences = clean.split('. ')
-        clean = '. '.join(sentences[:2]).strip()
-        if not clean.endswith('.'):
-            clean += '.'
-    return f"*{clean}*"
+    first_para = clean.split('\n')[0].strip()
+    return f"*{first_para}*"
 
 
 def conversation(state):
