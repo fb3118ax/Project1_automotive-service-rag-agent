@@ -69,6 +69,7 @@ def get_session(session_key: str) -> tuple[list, str]:
         return [], ""
 
 def save_session(session_key: str, history: list, current_topic: str) -> None:
+    print(f"DEBUG saving: topic='{current_topic}', history={len(history)}")
     try:
         cosmos_container.upsert_item({
             "id":            session_key,
@@ -101,6 +102,7 @@ async def query(request: Request, body: QueryRequest):
     session_key = f"{body.session_id}_{body.user_type}"
 
     conversation_history, current_topic = get_session(session_key)
+    print(f"DEBUG loaded: topic='{current_topic}', history={len(conversation_history)}")
 
     result = agent_app.invoke({
         "query":                body.query,

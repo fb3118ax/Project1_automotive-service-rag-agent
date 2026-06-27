@@ -12,6 +12,9 @@ from agent.query_expansion import query_expansion
 
 def route_after_input_guard(state):
     if state["guardrail_status"] == "pass":
+        from agent.retrievers import _is_context_free_image_request
+        if _is_context_free_image_request(state["query"]):
+            return "text_retriever"
         return "classifier"
     return "blocked_input"
 
@@ -47,7 +50,8 @@ graph.add_conditional_edges(
     route_after_input_guard,
     {
         "blocked_input": END,
-        "classifier":    "classifier"
+        "classifier":    "classifier",
+        "text_retriever": "text_retriever"
     }
 )
 
