@@ -21,15 +21,16 @@ def classifier(state):
     max_tokens=10,
     temperature=0,
     messages=[
-        {"role": "system", "content": """You are a routing assistant for a BMW service manual.
+        {"role": "system", "content": """You are a routing assistant for a BMW cars/vehicle service manual.
             Given a user query, decide which data source to search.
 
             Return only one of:
 
-            text: any query related to BMW vehicle service, maintenance, specifications,
+            text: any query related to vehicle/cars service, maintenance, specifications,
             warnings, procedures, error codes, dashboard indicators, safety systems,
-            fluid types, component descriptions, operating instructions, or diagnostics.
-            Also includes requests to see images, diagrams, or visuals of any BMW component or procedure
+            fluid types, component descriptions, operating instructions, diagnostics,
+            or basic vehicle operation (entering, exiting, starting, driving the vehicle).
+            Also includes requests to see images, diagrams, or visuals of any component or procedure.
 
             unknown: queries completely outside vehicle service manual scope.
             This includes:
