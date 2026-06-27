@@ -163,7 +163,7 @@ def image_retriever(state):
     query_lower = state["query"].lower()
     explicit_image_request = any(word in query_lower for word in IMAGE_REQUEST_KEYWORDS)
     if not explicit_image_request:
-        return {"image_paths": []}
+        return {"image_paths": [], "image_captions": []}
 
     rerank_query = state["query"]
     if _is_context_free_image_request(state["query"]):
@@ -171,7 +171,7 @@ def image_retriever(state):
         if current_topic:
             rerank_query = current_topic
         else:
-            return {"image_paths": []}
+            return {"image_paths": [], "image_captions": []}
 
     corrected_state = {**state, "query": rerank_query, "query_variations": []}
     corrected_chunks = text_retriever(corrected_state)
@@ -183,4 +183,5 @@ def image_retriever(state):
     kept = _rerank_images(rerank_query, candidates)
 
     image_urls = [build_blob_url(c["path"]) for c in kept]
-    return {"image_paths": image_urls}
+    image_captions = [c.get("caption", "") for c in kept]
+    return {"image_paths": image_urls, "image_captions": image_captions}

@@ -12,7 +12,7 @@ from agent.query_expansion import query_expansion
 
 def route_after_input_guard(state):
     if state["guardrail_status"] == "pass":
-        return ["classifier", "query_expansion"]
+        return "classifier"
     return "blocked_input"
 
 
@@ -46,9 +46,8 @@ graph.add_conditional_edges(
     "input_guardrail",
     route_after_input_guard,
     {
-        "blocked_input":   END,
-        "classifier":      "classifier",
-        "query_expansion": "query_expansion"
+        "blocked_input": END,
+        "classifier":    "classifier"
     }
 )
 
@@ -56,7 +55,7 @@ graph.add_conditional_edges(
     "classifier",
     route_intent,
     {
-        "text_retriever":  "text_retriever",
+        "text_retriever":  "query_expansion",
         "unknown_handler": "unknown_handler"
     }
 )

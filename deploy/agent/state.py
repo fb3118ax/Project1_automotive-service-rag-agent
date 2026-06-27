@@ -18,4 +18,5 @@ class AgentState(TypedDict):
     conversation_history: Annotated[list[BaseMessage], operator.add] 
     citations: Annotated[list[Citation], operator.add]  
     image_paths: Annotated[list[str], operator.add]
+    image_captions: Annotated[list[str], operator.add]
     current_topic: str

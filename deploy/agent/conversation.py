@@ -1,7 +1,7 @@
 import tiktoken
 from langchain_core.messages import AIMessage, HumanMessage
 from config.settings import client, LLM_MODEL, CONFIDENCE_THRESHOLD, OWNER_MAX_WORDS, TOKEN_LIMIT
-from agent.retrievers import _is_context_free_image_request
+from agent.retrievers import _is_context_free_image_request, IMAGE_REQUEST_KEYWORDS
 
 enc = tiktoken.encoding_for_model("gpt-4o")
 
@@ -10,13 +10,25 @@ def count_tokens(text):
 
 
 def conversation(state):
-    # context-free image requests don't need a text answer
-    if _is_context_free_image_request(state["query"]):
+    query_lower = state["query"].lower()
+    explicit_image_request = any(word in query_lower for word in IMAGE_REQUEST_KEYWORDS)
+
+    if _is_context_free_image_request(state["query"]) or explicit_image_request:
         image_paths = state.get("image_paths", [])
-        image_links = "\n".join([f"![Image]({url})" for url in image_paths])
-        answer = f"**Relevant Images:**\n{image_links}" if image_paths else "No relevant images found."
+        image_captions = state.get("image_captions", [])
+        if image_paths:
+            parts = []
+            for url, caption in zip(image_paths, image_captions):
+                parts.append(f"![Image]({url})")
+                if caption:
+                    parts.append(f"*{caption}*")
+            answer = "**Relevant Images:**\n" + "\n".join(parts)
+        else:
+            answer = "No relevant images found in the manual for this query."
+
+        new_topic = state["query"] if not _is_context_free_image_request(state["query"]) else state.get("current_topic", "")
         return {
-            "current_topic": state.get("current_topic", ""),
+            "current_topic": new_topic,
             "conversation_history": state["conversation_history"] + [
                 HumanMessage(content=state["query"]),
                 AIMessage(content=answer)
@@ -80,8 +92,13 @@ def conversation(state):
 
     image_paths = state.get("image_paths", [])
     if image_paths:
-        image_links = "\n".join([f"![Image]({url})" for url in image_paths])
-        answer += f"\n\n**Relevant Images:**\n{image_links}"
+        image_captions = state.get("image_captions", [])
+        parts = []
+        for url, caption in zip(image_paths, image_captions):
+            parts.append(f"![Image]({url})")
+            if caption:
+                parts.append(f"*{caption}*")
+        answer += "\n\n**Relevant Images:**\n" + "\n".join(parts)
 
     new_topic = state["query"]
     return {

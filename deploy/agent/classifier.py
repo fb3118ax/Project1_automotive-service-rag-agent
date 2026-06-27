@@ -1,10 +1,9 @@
-from agent.state import AgentState
 from config.settings import client, LLM_MODEL
 from langchain_core.messages import HumanMessage
 
 
 def classifier(state):
-    VALID_ROUTES = ["text", "both", "unknown"]
+    VALID_ROUTES = ["text", "unknown"]
 
     history = state["conversation_history"]
     if history:
@@ -18,32 +17,36 @@ def classifier(state):
         enriched_query = state["query"]
 
     response = client.chat.completions.create(
-        model=LLM_MODEL,
-        messages=[
-            {"role": "system", "content": """You are a routing assistant for a BMW service manual.
-                    Given a user query, decide which data source to search.
+    model=LLM_MODEL,
+    max_tokens=10,
+    temperature=0,
+    messages=[
+        {"role": "system", "content": """You are a routing assistant for a BMW service manual.
+            Given a user query, decide which data source to search.
 
-                    Return only one of:
+            Return only one of:
 
-                    text: descriptive information, procedures, explanations, warnings,
-                    fluid types and specifications (e.g. which oil to use),
-                    component descriptions, operating instructions, warning lights,
-                    error codes, dashboard indicators, safety systems
+            text: any query related to BMW vehicle service, maintenance, specifications,
+            warnings, procedures, error codes, dashboard indicators, safety systems,
+            fluid types, component descriptions, operating instructions, or diagnostics.
+            Also includes requests to see images, diagrams, or visuals of any BMW component or procedure
 
-                    both: multiple symptoms, diagnostic queries, anything where
-                    the answer needs both an explanation AND a spec value,
-                    strange noises, car not starting, complex issues
+            unknown: queries completely outside vehicle service manual scope.
+            This includes:
+            - Purchase intent: buying parts, accessories, pricing, where to buy, cost of parts
+            - Dealer/retail queries: dealership locations, ordering parts online
+            - General opinions: best car, car comparisons, recommendations
+            - Non-automotive topics: jokes, weather, stocks, recipes, general knowledge
+            - Harmful content: weapons, explosives, illegal activities
+            - Vague queries with no automotive context
 
-                    unknown: queries completely outside vehicle service manual scope —
-                    stock prices, financial information, jokes, riddles, general knowledge,
-                    dealer locations, purchase advice, non-automotive topics,
-                    anything unrelated to vehicle operation, maintenance, or repair.
-                    Vague queries like "something is wrong" with no automotive context = unknown."""},
-            {"role": "user", "content": enriched_query}
-        ]
-    )
+            When in doubt between text and unknown, prefer unknown."""},
+        {"role": "user", "content": enriched_query}
+    ]
+)
 
     intent = response.choices[0].message.content.strip().lower()
     if intent not in VALID_ROUTES:
         intent = "unknown"
+    
     return {"intent": intent}
