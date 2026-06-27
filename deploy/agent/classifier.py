@@ -21,7 +21,7 @@ def classifier(state):
     max_tokens=10,
     temperature=0,
     messages=[
-        {"role": "system", "content": """You are a routing assistant for a BMW cars/vehicle service manual.
+        {"role": "system", "content": """You are a routing assistant for a cars/vehicle service manual.
             Given a user query, decide which data source to search.
 
             Return only one of:
