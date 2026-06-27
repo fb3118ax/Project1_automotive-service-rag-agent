@@ -8,10 +8,15 @@ enc = tiktoken.encoding_for_model("gpt-4o")
 def count_tokens(text):
     return len(enc.encode(text))
 
-def _format_caption(caption: str, user_type: str) -> str:
+def _format_caption(caption: str) -> str:
     clean = caption.strip().strip('*')
-    first_para = clean.split('\n')[0].strip()
-    return f"*{first_para}*"
+    first_line = clean.split('\n')[0].strip()
+    if len(first_line) > 200:
+        sentences = first_line.split('. ')
+        first_line = '. '.join(sentences[:2]).strip()
+        if not first_line.endswith('.'):
+            first_line += '.'
+    return f"*{first_line}*"
 
 
 def conversation(state):
@@ -26,7 +31,7 @@ def conversation(state):
             for url, caption in zip(image_paths, image_captions):
                 parts.append(f"![Image]({url})")
                 if caption:
-                    parts.append(_format_caption(caption, state["user_type"]))
+                    parts.append(_format_caption(caption))
             answer = "**Relevant Images:**\n" + "\n".join(parts)
         else:
             answer = "No relevant images found in the manual for this query."
@@ -57,15 +62,15 @@ def conversation(state):
     citation_text = "\n".join([f"- Page {c['page']}" for c in state["citations"]])
 
     if user_type == "owner":
-        system_prompt = f"""You are a BMW service manual assistant helping a car owner.
+        system_prompt = f"""You are a vehicle service manual assistant helping a car owner.
                         Use simple, non-technical language. Avoid jargon.
-                        Always recommend visiting a certified BMW service center for repairs.
+                        Always recommend visiting a certified service center for repairs.
                         Base your answer only on the provided manual context.
                         STRICTLY - Never mention that you cannot show images, display visuals, or provide diagrams. Do not reference images at all in your text response.
                         Reference these manual pages: {citation_text}
                         Keep the response concise and under {OWNER_MAX_WORDS} words."""
     else:
-        system_prompt = f"""You are a BMW service manual assistant helping a certified technician.
+        system_prompt = f"""You are a vehicle service manual assistant helping a certified technician.
                         Use precise technical language. Include specifications, torque values, and part references where available.
                         Always cite the page number from the manual context in your response.
                         Base your answer only on the provided manual context.
@@ -93,7 +98,7 @@ def conversation(state):
     answer = response.choices[0].message.content.strip()
 
     if state["confidence_score"] < CONFIDENCE_THRESHOLD:
-        answer += "\n\n⚠️ Note: This answer is based on limited matches from the manual. Please verify with a certified BMW technician."
+        answer += "\n\n⚠️ Note: This answer is based on limited matches from the manual. Please verify with a certified technician."
 
     image_paths = state.get("image_paths", [])
     if image_paths:
@@ -102,7 +107,7 @@ def conversation(state):
         for url, caption in zip(image_paths, image_captions):
             parts.append(f"![Image]({url})")
             if caption:
-                parts.append(_format_caption(caption, state["user_type"]))
+                parts.append(_format_caption(caption))
         answer += "\n\n**Relevant Images:**\n" + "\n".join(parts)
 
     new_topic = state["query"]

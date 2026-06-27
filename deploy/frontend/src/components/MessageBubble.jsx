@@ -3,9 +3,9 @@ import { FileText, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 
 function ConfidenceBadge({ score }) {
-  if (score === null) return null
-  if (score < 0.4) return <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-900/50 text-green-400 font-medium">High confidence</span>
-  if (score <= 0.7) return <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-900/50 text-amber-400 font-medium">Acceptable confidence</span>
+  if (score === null || score === 0) return null
+  if (score >= 0.6) return <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-900/50 text-green-400 font-medium">High confidence</span>
+  if (score >= 0.4) return <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-900/50 text-amber-400 font-medium">Acceptable confidence</span>
   return <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-900/50 text-red-400 font-medium">Low confidence</span>
 }
 
