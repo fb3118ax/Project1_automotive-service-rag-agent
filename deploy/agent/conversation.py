@@ -8,6 +8,15 @@ enc = tiktoken.encoding_for_model("gpt-4o")
 def count_tokens(text):
     return len(enc.encode(text))
 
+def _format_caption(caption: str, user_type: str) -> str:
+    clean = caption.strip().strip('*')
+    if user_type == "owner":
+        sentences = clean.split('. ')
+        clean = '. '.join(sentences[:2]).strip()
+        if not clean.endswith('.'):
+            clean += '.'
+    return f"*{clean}*"
+
 
 def conversation(state):
     query_lower = state["query"].lower()
@@ -21,7 +30,7 @@ def conversation(state):
             for url, caption in zip(image_paths, image_captions):
                 parts.append(f"![Image]({url})")
                 if caption:
-                    parts.append(f"*{caption}*")
+                    parts.append(_format_caption(caption, state["user_type"]))
             answer = "**Relevant Images:**\n" + "\n".join(parts)
         else:
             answer = "No relevant images found in the manual for this query."
@@ -97,7 +106,7 @@ def conversation(state):
         for url, caption in zip(image_paths, image_captions):
             parts.append(f"![Image]({url})")
             if caption:
-                parts.append(f"*{caption}*")
+                parts.append(_format_caption(caption, state["user_type"]))
         answer += "\n\n**Relevant Images:**\n" + "\n".join(parts)
 
     new_topic = state["query"]
