@@ -68,9 +68,8 @@ def check_cache(state: AgentState) -> AgentState:
             if similarity >= CACHE_SIMILARITY_THRESHOLD:
                 meta = results["metadatas"][0][0]
                 if _is_expired(meta["cached_at"]):
-                    print("[CACHE] Hit but expired — miss.")
                     return {**state, "cache_hit": False}
-                print(f"[CACHE HIT] similarity={similarity:.3f} for: {query!r}")
+                
                 return {
                     **state,
                     "cache_hit": True,
@@ -81,10 +80,9 @@ def check_cache(state: AgentState) -> AgentState:
                     "current_topic":    meta["current_topic"],
                 }
 
-    except Exception as e:
-        print(f"[CACHE ERROR] {e}")
+    except Exception as e:        
 
-    return {**state, "cache_hit": False}
+        return {**state, "cache_hit": False}
 
 
 def write_cache(state: AgentState) -> None:
@@ -97,7 +95,7 @@ def write_cache(state: AgentState) -> None:
 
     try:
         vector = _embed(_cache_key_text(query, user_type))
-        doc_id = f"{query.strip().lower()}|{user_type}"[:512]  # stable ID
+        doc_id = f"{query.strip().lower()}|{user_type}"[:512]  
 
         _collection.upsert(
             ids=[doc_id],
