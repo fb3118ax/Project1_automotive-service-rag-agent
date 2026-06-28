@@ -19,6 +19,12 @@ EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 DB_PATH = os.getenv("CHROMA_DB_PATH", "./BMW_RAG_db")
 TEXT_COLLECTION = os.getenv("TEXT_COLLECTION", "text_chunks")
 
+# ── Sementic cache ──────────────────────────────────────────────────────────────────
+CACHE_DB_PATH            = os.getenv("CACHE_DB_PATH", "./mechai_cache_db")
+CACHE_COLLECTION         = os.getenv("CACHE_COLLECTION", "semantic_cache")
+CACHE_SIMILARITY_THRESHOLD = float(os.getenv("CACHE_SIMILARITY_THRESHOLD", "0.95"))
+CACHE_TTL_DAYS           = int(os.getenv("CACHE_TTL_DAYS", "30"))
+
 # ── Retrieval ─────────────────────────────────────────────────────────────────
 RETRIEVAL_K = int(os.getenv("RETRIEVAL_K", "4"))
 

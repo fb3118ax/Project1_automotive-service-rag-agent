@@ -8,6 +8,7 @@ from agent.conversation import conversation
 from agent.input_guardrail import input_guardrail
 from agent.output_guardrail import output_guardrail
 from agent.query_expansion import query_expansion
+from agent.semantic_cache import check_cache
 
 
 def route_after_input_guard(state):
@@ -15,8 +16,15 @@ def route_after_input_guard(state):
         from agent.retrievers import _is_context_free_image_request
         if _is_context_free_image_request(state["query"]):
             return "text_retriever"
-        return "classifier"
+        return "check_cache"          
     return "blocked_input"
+
+
+def route_after_cache(state):
+    """Cache hit → END (response already populated). Miss → classifier."""
+    if state.get("cache_hit"):
+        return "cache_hit_end"
+    return "classifier"
 
 
 def route_intent(state):
@@ -27,13 +35,9 @@ def route_intent(state):
         return "text_retriever"
 
 
-def route_after_output_guard(state):
-    """Don't show images if output was blocked."""
-    return END
-
-
 graph = StateGraph(AgentState)
 graph.add_node('input_guardrail',  input_guardrail)
+graph.add_node('check_cache',      check_cache)       # ← new
 graph.add_node('classifier',       classifier)
 graph.add_node('query_expansion',  query_expansion)
 graph.add_node('text_retriever',   text_retriever)
@@ -49,9 +53,18 @@ graph.add_conditional_edges(
     "input_guardrail",
     route_after_input_guard,
     {
-        "blocked_input": END,
+        "blocked_input":  END,
+        "check_cache":    "check_cache",
+        "text_retriever": "text_retriever",   # context-free image bypass
+    }
+)
+
+graph.add_conditional_edges(
+    "check_cache",
+    route_after_cache,
+    {
+        "cache_hit_end": END,     # cache hit — final_response already in state
         "classifier":    "classifier",
-        "text_retriever": "text_retriever"
     }
 )
 

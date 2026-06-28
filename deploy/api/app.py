@@ -69,7 +69,6 @@ def get_session(session_key: str) -> tuple[list, str]:
         return [], ""
 
 def save_session(session_key: str, history: list, current_topic: str) -> None:
-    print(f"DEBUG saving: topic='{current_topic}', history={len(history)}")
     try:
         cosmos_container.upsert_item({
             "id":            session_key,
@@ -97,13 +96,11 @@ class QueryResponse(BaseModel):
 
 # ── Query endpoint ────────────────────────────────────────────────────────────
 @api.post("/query")
-@limiter.limit("5/minute")           # max 5 requests per minute per IP
+@limiter.limit("5/minute")
 async def query(request: Request, body: QueryRequest):
     session_key = f"{body.session_id}_{body.user_type}"
 
     conversation_history, current_topic = get_session(session_key)
-    print(f"DEBUG loaded: topic='{current_topic}', history={len(conversation_history)}")
-
     result = agent_app.invoke({
         "query":                body.query,
         "user_type":            body.user_type,
@@ -116,10 +113,16 @@ async def query(request: Request, body: QueryRequest):
         "confidence_score":     0.0,
         "citations":            [],
         "current_topic":        current_topic,
-        "image_paths":          []
+        "image_paths":          [],
+        "image_captions":       [],
+        "cache_hit":            False,
+        "final_response":       "",
     })
 
-    if result["guardrail_status"] == "blocked_input":
+    if result.get("cache_hit"):
+        last_message = result["final_response"]
+        save_session(session_key, result["conversation_history"], result.get("current_topic", ""))
+    elif result["guardrail_status"] == "blocked_input":
         last_message = result["guardrail_response"]
     elif result["guardrail_status"] == "blocked_output":
         last_message = result["guardrail_response"]
@@ -132,5 +135,5 @@ async def query(request: Request, body: QueryRequest):
         answer=last_message,
         citations=result["citations"],
         confidence_score=result["confidence_score"],
-        guardrail_response=result["guardrail_response"]
+        guardrail_response=result["guardrail_response"],
     )
