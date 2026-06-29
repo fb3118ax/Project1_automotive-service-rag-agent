@@ -37,7 +37,7 @@ def route_intent(state):
 
 graph = StateGraph(AgentState)
 graph.add_node('input_guardrail',  input_guardrail)
-graph.add_node('check_cache',      check_cache)       # ← new
+graph.add_node('check_cache',      check_cache)       
 graph.add_node('classifier',       classifier)
 graph.add_node('query_expansion',  query_expansion)
 graph.add_node('text_retriever',   text_retriever)
@@ -55,7 +55,7 @@ graph.add_conditional_edges(
     {
         "blocked_input":  END,
         "check_cache":    "check_cache",
-        "text_retriever": "text_retriever",   # context-free image bypass
+        "text_retriever": "text_retriever",   
     }
 )
 
@@ -63,7 +63,7 @@ graph.add_conditional_edges(
     "check_cache",
     route_after_cache,
     {
-        "cache_hit_end": END,     # cache hit — final_response already in state
+        "cache_hit_end": END,     
         "classifier":    "classifier",
     }
 )
