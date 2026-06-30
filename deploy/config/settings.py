@@ -48,6 +48,10 @@ INJECTION_PATTERNS = [
 # ── SOURCE_PDFS ───────────────────────────────────────────────────────────────────
 DATA_FOLDER = os.getenv("DATA_FOLDER", "./data")
 
+# Source manual PDF, rasterized on demand by the recaption scripts to read
+# numbered-callout legends visually. Override via the PDF_PATH env var.
+PDF_PATH = os.getenv("PDF_PATH", os.path.join(DATA_FOLDER, "manual.pdf"))
+
 # ── CHUNKS ───────────────────────────────────────────────────────────────────
 CHUNK_SIZE = 2000
 CHUNK_OVERLAP = 200
