@@ -27,13 +27,32 @@ api.add_middleware(
 )
 
 # ── Cosmos DB ─────────────────────────────────────────────────────────────────
+# COSMOS_CONNECTION_STRING = os.getenv("COSMOS_CONNECTION_STRING")
+# COSMOS_DATABASE          = "mechai-db"
+# COSMOS_CONTAINER         = "sessions"
+
+# cosmos_client    = CosmosClient.from_connection_string(COSMOS_CONNECTION_STRING)
+# cosmos_database  = cosmos_client.get_database_client(COSMOS_DATABASE)
+# cosmos_container = cosmos_database.get_container_client(COSMOS_CONTAINER)
+
+# ── Cosmos DB (lazy init) ──────────────────────────────────────────────────
 COSMOS_CONNECTION_STRING = os.getenv("COSMOS_CONNECTION_STRING")
 COSMOS_DATABASE          = "mechai-db"
 COSMOS_CONTAINER         = "sessions"
 
-cosmos_client    = CosmosClient.from_connection_string(COSMOS_CONNECTION_STRING)
-cosmos_database  = cosmos_client.get_database_client(COSMOS_DATABASE)
-cosmos_container = cosmos_database.get_container_client(COSMOS_CONTAINER)
+_cosmos_container = None
+
+def get_cosmos_container():
+    global _cosmos_container
+    if _cosmos_container is None:
+        client = CosmosClient.from_connection_string(
+            COSMOS_CONNECTION_STRING,
+            connection_timeout=10,   # seconds to establish connection
+            request_timeout=30,      # seconds to wait for a response
+        )
+        db = client.get_database_client(COSMOS_DATABASE)
+        _cosmos_container = db.get_container_client(COSMOS_CONTAINER)
+    return _cosmos_container
 
 
 # ── Session helpers ───────────────────────────────────────────────────────────

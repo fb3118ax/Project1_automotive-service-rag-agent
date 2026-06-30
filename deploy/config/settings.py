@@ -5,6 +5,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# source
+PDF_PATH = "C:/Users/Pranali Jadhav/OneDrive/Documents/GEN_AI/my_study/Bot_Project_1/bmw_manual.pdf"
+
 # ── API ────────────────────────────────────────────────────────────────────────
 api_key = os.environ.get("OPENAI_API_KEY")
 client = OpenAI()

@@ -37,7 +37,7 @@ UNRESOLVED_MARKER = "No match in the provided legend"
 
 # Paste chroma_ids here for a quick run, or pass --input-file (which wins).
 CHROMA_IDS: list[str] = [
-    # "164de1897a6fa48e7996f7622374528f",
+    "164de1897a6fa48e7996f7622374528f",
 ]
 
 

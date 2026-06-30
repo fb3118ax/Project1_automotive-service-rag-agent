@@ -1,68 +1,159 @@
 """
 recaption_bad_images.py
 -----------------------
-Finds all ChromaDB image records where caption == image_path (bad captions),
-re-generates captions via GPT-4o vision, and updates ChromaDB in place.
+Finds all ChromaDB image records with numbered callouts (via a GPT-4o
+vision classification pass), then re-generates captions via GPT-4o vision
+using the callout diagram PLUS rendered images of surrounding manual pages
+(not extracted text), so icon-based legends and legends spanning multiple
+pages can be read visually instead of relying on pdfplumber text extraction.
+
+Requires the original PDF (PDF_PATH) since pages are rasterized on demand.
 
 Run from project root:
     $env:PYTHONPATH="."; python scripts/recaption_bad_images.py
 
-Dry run:
+Dry run (classification only, no API spend on recaptioning):
     $env:PYTHONPATH="."; python scripts/recaption_bad_images.py --dry-run
+
+Safety cap: if more than SAFETY_CAP images are flagged, the script prints
+a cost estimate and requires --confirm to proceed.
 """
 
 import argparse
 import base64
 import os
+from io import BytesIO
+
 import chromadb
-from config.settings import DB_PATH, IMAGE_COLLECTION, LLM_MODEL, client, embedding_model
+import pdfplumber
+
+from config.settings import DB_PATH, IMAGE_COLLECTION, LLM_MODEL, client, embedding_model, PDF_PATH
+
+SAFETY_CAP = 50
+PAGE_FORWARD = 2  # legends only ever appear on the callout page or after it;
+                   # render page_number .. page_number + PAGE_FORWARD
 
 
-def find_bad_records(col):
+def encode_image(image_path: str) -> str:
+    with open(image_path, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode("utf-8")
+    ext = image_path.rsplit(".", 1)[-1].lower()
+    mime = "image/png" if ext == "png" else "image/jpeg"
+    return f"data:{mime};base64,{b64}"
+
+
+def is_numbered_callout(image_path: str, client) -> bool:
+    """Cheap classification pass: does this image have numbered callouts?"""
+    if not os.path.exists(image_path):
+        return False
+    try:
+        resp = client.chat.completions.create(
+            model="gpt-4o",
+            temperature=0,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Does this image contain numbered callouts (circled numbers with leader lines pointing to components)? Answer only 'yes' or 'no'."},
+                    {"type": "image_url", "image_url": {"url": encode_image(image_path)}}
+                ]
+            }],
+            max_tokens=5,
+        )
+        answer = resp.choices[0].message.content.strip().lower()
+        return answer.startswith("yes")
+    except Exception as e:
+        print(f"  [classify error] {image_path}: {e}")
+        return False
+
+
+def find_bad_records(col, client):
+    """
+    Return list of (chroma_id, image_path, meta) for images with numbered
+    callouts. Deduplicates by image_path so the same file isn't classified
+    or recaptioned twice if multiple chroma_ids point at it.
+    """
     results = col.get(include=["documents", "metadatas"])
     bad = []
-    for chroma_id, doc, meta in zip(
-        results["ids"], results["documents"], results["metadatas"]
+    seen_paths = set()
+    total = len(results["ids"])
+    for i, (chroma_id, doc, meta) in enumerate(
+        zip(results["ids"], results["documents"], results["metadatas"])
     ):
         path = meta.get("image_path", "")
-        if doc.strip() == path.strip():
+        if path in seen_paths:
+            print(f"  [{i+1}/{total}] {path} ... duplicate path, skipping reclassification")
+            continue
+        seen_paths.add(path)
+        print(f"  [{i+1}/{total}] classifying {path} ...", end=" ")
+        if is_numbered_callout(path, client):
+            print("NUMBERED CALLOUT — flagged")
             bad.append((chroma_id, path, meta))
+        else:
+            print("skip")
     return bad
 
 
-def generate_caption(image_path: str):
+def render_page_as_data_url(pdf, page_number: int, resolution: int = 150) -> str | None:
+    """Render a single 1-indexed PDF page to a base64 PNG data URL."""
+    try:
+        idx = page_number - 1
+        if idx < 0 or idx >= len(pdf.pages):
+            return None
+        page = pdf.pages[idx]
+        img = page.to_image(resolution=resolution)
+        buf = BytesIO()
+        img.original.save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+        return f"data:image/png;base64,{b64}"
+    except Exception as e:
+        print(f"  [render error] page {page_number}: {e}")
+        return None
+
+
+def generate_caption(image_path: str, page_number: int, pdf, forward: int = PAGE_FORWARD) -> str | None:
+    """
+    Generate a caption using the callout diagram + rendered images of
+    surrounding manual pages, so GPT-4o can read icon-based or
+    multi-page legends visually.
+
+    Only forward pages are rendered (page_number .. page_number + forward).
+    Legends in this manual are confirmed to never appear on a page before
+    the callout image, so a backward window is wasted cost.
+    """
     if not os.path.exists(image_path):
         print(f"  [SKIP] File not found: {image_path}")
         return None
     try:
-        with open(image_path, "rb") as f:
-            image_data = base64.b64encode(f.read()).decode("utf-8")
+        content = [
+            {"type": "image_url", "image_url": {"url": encode_image(image_path)}},
+        ]
+
+        for p in range(page_number, page_number + forward + 1):
+            page_url = render_page_as_data_url(pdf, p)
+            if page_url:
+                content.append({"type": "image_url", "image_url": {"url": page_url}})
+
+        content.append({
+            "type": "text",
+            "text": (
+                "The first image is a numbered-callout diagram from a BMW service manual "
+                "(e.g. steering wheel or dashboard, with circled numbers and leader lines). "
+                "The following image(s) are the surrounding manual pages, which contain the "
+                "legend mapping each number to a component name (the legend may use icons "
+                "next to text labels, and may span more than one page). "
+                "Using the legend pages, identify and explain what each numbered callout "
+                "in the first image refers to. List each number with its component name "
+                "clearly, e.g. '1. Safety switch for windows and roller sunblinds'. "
+                "Be specific and technical so the description is useful for a technician. "
+                "If a number genuinely cannot be matched to a legend entry, say so explicitly "
+                "for that number only."
+            ),
+        })
 
         response = client.chat.completions.create(
             model=LLM_MODEL,
-            timeout=60,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/png;base64,{image_data}"
-                            },
-                        },
-                        {
-                            "type": "text",
-                            "text": (
-                                "You are analyzing a BMW service manual image. "
-                                "Be specific and technical so the description is useful for a technician "
-                                "searching for information. Look for any numbers, labels and text, "
-                                "what the image shows, check for symbols and indicators."
-                            ),
-                        },
-                    ],
-                }
-            ],
+            timeout=90,
+            messages=[{"role": "user", "content": content}],
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
@@ -73,38 +164,59 @@ def generate_caption(image_path: str):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--confirm", action="store_true", help="Skip the safety cap prompt")
     args = parser.parse_args()
 
     db = chromadb.PersistentClient(path=DB_PATH)
-    col = db.get_collection(IMAGE_COLLECTION)
+    image_col = db.get_collection(IMAGE_COLLECTION)
 
-    bad_records = find_bad_records(col)
-    print(f"Found {len(bad_records)} bad captions.")
+    print(f"Total images in collection: {image_col.count()}")
+
+    bad_records = find_bad_records(image_col, client)
+    print(f"Found {len(bad_records)} numbered-callout images.")
 
     if args.dry_run:
         for chroma_id, path, _ in bad_records:
             print(f"  {path}")
         return
 
+    if len(bad_records) > SAFETY_CAP and not args.confirm:
+        images_per_call = 1 + (PAGE_FORWARD + 1)  # callout + context pages
+        print(
+            f"\n[SAFETY CAP] {len(bad_records)} images flagged, exceeding cap of {SAFETY_CAP}.\n"
+            f"Each recaption call sends ~{images_per_call} images "
+            f"(callout + {PAGE_FORWARD + 1} forward context pages), so this run will make "
+            f"{len(bad_records)} vision calls totalling ~{len(bad_records) * images_per_call} images.\n"
+            f"Re-run with --confirm to proceed anyway.\n"
+        )
+        return
+
+    if not os.path.exists(PDF_PATH):
+        print(f"[ERROR] PDF_PATH not found: {PDF_PATH}")
+        return
+
     success = 0
     failed = 0
 
-    for i, (chroma_id, image_path, meta) in enumerate(bad_records):
-        print(f"[{i+1}/{len(bad_records)}] Recaptioning: {image_path}")
-        caption = generate_caption(image_path)
+    with pdfplumber.open(PDF_PATH) as pdf:
+        for i, (chroma_id, image_path, meta) in enumerate(bad_records):
+            print(f"[{i+1}/{len(bad_records)}] Recaptioning: {image_path}")
 
-        if caption:
-            emb = embedding_model.embed_query(caption)
-            col.upsert(
-                ids=[chroma_id],
-                documents=[caption],
-                embeddings=[emb],
-                metadatas=[meta],
-            )
-            print(f"  [OK] Updated.")
-            success += 1
-        else:
-            failed += 1
+            page_number = meta.get("page_number")
+            caption = generate_caption(image_path, page_number, pdf)
+
+            if caption:
+                emb = embedding_model.embed_query(caption)
+                image_col.upsert(
+                    ids=[chroma_id],
+                    documents=[caption],
+                    embeddings=[emb],
+                    metadatas=[meta],
+                )
+                print(f"  [OK] Updated.")
+                success += 1
+            else:
+                failed += 1
 
     print(f"\nDone. Success: {success}, Failed: {failed}")
 

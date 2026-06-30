@@ -19,6 +19,17 @@ def _format_caption(caption: str) -> str:
     return f"*{first_line}*"
 
 
+def _dedup_images(image_paths, image_captions):
+    """Deduplicate image paths preserving order."""
+    seen = set()
+    deduped = []
+    for url, caption in zip(image_paths, image_captions):
+        if url not in seen:
+            seen.add(url)
+            deduped.append((url, caption))
+    return deduped
+
+
 def conversation(state):
     query_lower = state["query"].lower()
     explicit_image_request = any(word in query_lower for word in IMAGE_REQUEST_KEYWORDS)
@@ -27,8 +38,9 @@ def conversation(state):
         image_paths = state.get("image_paths", [])
         image_captions = state.get("image_captions", [])
         if image_paths:
+            deduped = _dedup_images(image_paths, image_captions)
             parts = []
-            for url, caption in zip(image_paths, image_captions):
+            for url, caption in deduped:
                 parts.append(f"![Image]({url})")
                 if caption:
                     parts.append(_format_caption(caption))
@@ -49,7 +61,7 @@ def conversation(state):
         return {
             "current_topic": state.get("current_topic", ""),
             "conversation_history": state["conversation_history"] + [
-                AIMessage(content="I couldn't find relevant information in your BMW manual for this query. Please consult a certified BMW technician.")
+                AIMessage(content="I couldn't find relevant information in your vehicle manual for this query. Please consult a certified technician.")
             ]
         }
 
@@ -103,8 +115,9 @@ def conversation(state):
     image_paths = state.get("image_paths", [])
     if image_paths:
         image_captions = state.get("image_captions", [])
+        deduped = _dedup_images(image_paths, image_captions)
         parts = []
-        for url, caption in zip(image_paths, image_captions):
+        for url, caption in deduped:
             parts.append(f"![Image]({url})")
             if caption:
                 parts.append(_format_caption(caption))
