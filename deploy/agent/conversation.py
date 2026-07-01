@@ -11,11 +11,6 @@ def count_tokens(text):
 def _format_caption(caption: str) -> str:
     clean = caption.strip().strip('*')
     first_line = clean.split('\n')[0].strip()
-    if len(first_line) > 200:
-        sentences = first_line.split('. ')
-        first_line = '. '.join(sentences[:2]).strip()
-        if not first_line.endswith('.'):
-            first_line += '.'
     return f"*{first_line}*"
 
 
