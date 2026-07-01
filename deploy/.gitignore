@@ -6,7 +6,7 @@ Architecture/
 __pycache__/
 *.pyc
 images/
-BMW_RAG_db/**/*.bin
+
 BMW_RAG_db/**/length.binmechai_cache_db/
 
 mechai_cache_db/
