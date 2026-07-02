@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
-import { sendQuery } from '../api/client'
+import { sendQuery, getSessionHistory } from '../api/client'
+import { getUserId } from '../lib/userId'
 
 function newSessionId() {
   return crypto.randomUUID()
@@ -11,6 +12,7 @@ export function useChat() {
   const [slowServer, setSlowServer] = useState(false)
   const [userType, setUserType] = useState(null)
   const sessionId = useRef(newSessionId())
+  const userId = useRef(getUserId())
   const slowTimer = useRef(null)
 
   const selectMode = useCallback((mode) => {
@@ -34,6 +36,7 @@ export function useChat() {
         query,
         session_id: sessionId.current,
         user_type: userType,
+        user_id: userId.current,
       })
 
       const isGuardrail = data.guardrail_response !== ''
@@ -71,5 +74,54 @@ export function useChat() {
     setSlowServer(false)
   }, [])
 
-  return { messages, loading, slowServer, userType, send, newConversation, selectMode }
+  // Loads a past conversation from Cosmos and resumes it, badges/citations included.
+  const loadConversation = useCallback(async (session_id, loadedUserType) => {
+    setLoading(true)
+    try {
+      const data = await getSessionHistory(session_id, userId.current, loadedUserType)
+
+      const mapped = (data.history || []).map(m => {
+        if (m.role === 'human') {
+          return { role: 'user', content: m.content }
+        }
+        return {
+          role: 'bot',
+          content: m.content,
+          confidence_score: m.confidence_score ?? null,
+          citations: m.citations || [],
+          guardrail: false,
+        }
+      })
+
+      sessionId.current = session_id
+      setUserType(loadedUserType)
+      setMessages(mapped)
+    } catch (err) {
+      console.error('[loadConversation] failed:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Renders a precomputed FAQ seed answer instantly, no /query call.
+  const sendFaqAnswer = useCallback((question, answer, citations, confidence_score) => {
+    setMessages(prev => [
+      ...prev,
+      { role: 'user', content: question },
+      {
+        role: 'bot',
+        content: answer,
+        confidence_score: confidence_score ?? null,
+        citations: citations || [],
+        guardrail: false,
+      },
+    ])
+  }, [])
+
+  return {
+    messages, loading, slowServer, userType,
+    send, newConversation, selectMode,
+    loadConversation, sendFaqAnswer,
+    userId: userId.current,
+  }
 }

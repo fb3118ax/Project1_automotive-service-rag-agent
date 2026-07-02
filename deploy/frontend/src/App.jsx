@@ -31,7 +31,11 @@ function SlowServerWarning() {
 }
 
 export default function App() {
-  const { messages, loading, slowServer, userType, send, newConversation, selectMode } = useChat()
+  const {
+    messages, loading, slowServer, userType,
+    send, newConversation, selectMode,
+    loadConversation, sendFaqAnswer, userId,
+  } = useChat()
   const bottomRef = useRef(null)
 
   useEffect(() => {
@@ -46,7 +50,11 @@ export default function App() {
     <div className="h-screen flex bg-[#0f0f0f] overflow-hidden">
       <Sidebar
         userType={userType}
+        userId={userId}
         onNewConversation={newConversation}
+        onLoadConversation={loadConversation}
+        onSend={send}
+        onFaqSeedClick={sendFaqAnswer}
       />
 
       <div className="flex flex-col flex-1 min-w-0">

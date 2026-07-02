@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -6,8 +6,11 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from agent.graph import app as agent_app
 from langchain_core.messages import HumanMessage, AIMessage
-from azure.cosmos import CosmosClient, exceptions
+from azure.cosmos import CosmosClient, exceptions, PartitionKey
+from datetime import datetime, timezone
 import os
+import re
+import uuid
 
 # ── Rate Limiter ───────────────────────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address)
@@ -26,84 +29,177 @@ api.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Cosmos DB ─────────────────────────────────────────────────────────────────
-# COSMOS_CONNECTION_STRING = os.getenv("COSMOS_CONNECTION_STRING")
-# COSMOS_DATABASE          = "mechai-db"
-# COSMOS_CONTAINER         = "sessions"
-
-# cosmos_client    = CosmosClient.from_connection_string(COSMOS_CONNECTION_STRING)
-# cosmos_database  = cosmos_client.get_database_client(COSMOS_DATABASE)
-# cosmos_container = cosmos_database.get_container_client(COSMOS_CONTAINER)
-
 # ── Cosmos DB (lazy init) ──────────────────────────────────────────────────
 COSMOS_CONNECTION_STRING = os.getenv("COSMOS_CONNECTION_STRING")
 COSMOS_DATABASE          = "mechai-db"
-COSMOS_CONTAINER         = "sessions"
 
-_cosmos_container = None
+SESSIONS_CONTAINER  = "sessions"
+QUERYLOG_CONTAINER  = "query_log"
+FAQSEED_CONTAINER   = "faq_seed"
 
-def get_cosmos_container():
-    global _cosmos_container
-    if _cosmos_container is None:
+SESSION_TTL_SECONDS   = 1296000  # 15 days
+QUERYLOG_TTL_SECONDS  = 1296000  # 15 days
+
+_cosmos_db = None
+_containers = {}
+
+
+def get_cosmos_db():
+    global _cosmos_db
+    if _cosmos_db is None:
         client = CosmosClient.from_connection_string(
             COSMOS_CONNECTION_STRING,
-            connection_timeout=10,   # seconds to establish connection
-            request_timeout=30,      # seconds to wait for a response
+            connection_timeout=10,
+            request_timeout=30,
         )
-        db = client.get_database_client(COSMOS_DATABASE)
-        _cosmos_container = db.get_container_client(COSMOS_CONTAINER)
-    return _cosmos_container
+        _cosmos_db = client.get_database_client(COSMOS_DATABASE)
+    return _cosmos_db
+
+
+def get_container(name: str, partition_key_path: str, default_ttl: int | None = None):
+    """Lazily fetch (and create if missing) a container, cached after first call."""
+    if name in _containers:
+        return _containers[name]
+
+    db = get_cosmos_db()
+    try:
+        container = db.get_container_client(name)
+        container.read()  # forces a check that it exists
+    except exceptions.CosmosResourceNotFoundError:
+        create_kwargs = {"id": name, "partition_key": PartitionKey(path=partition_key_path)}
+        if default_ttl is not None:
+            create_kwargs["default_ttl"] = default_ttl
+        container = db.create_container(**create_kwargs)
+
+    _containers[name] = container
+    return container
+
+
+def get_sessions_container():
+    return get_container(SESSIONS_CONTAINER, "/session_key", default_ttl=SESSION_TTL_SECONDS)
+
+
+def get_querylog_container():
+    return get_container(QUERYLOG_CONTAINER, "/user_id", default_ttl=QUERYLOG_TTL_SECONDS)
+
+
+def get_faqseed_container():
+    return get_container(FAQSEED_CONTAINER, "/id", default_ttl=None)
 
 
 # ── Session helpers ───────────────────────────────────────────────────────────
 def serialize_history(history: list) -> list:
-    """Convert LangChain messages to JSON-serializable dicts."""
+    """Convert LangChain messages to JSON-serializable dicts.
+    AI messages carry citations + confidence_score so resumed conversations
+    can re-render badges/citations, not just plain text."""
     result = []
     for m in history:
         if isinstance(m, HumanMessage):
             result.append({"role": "human", "content": m.content})
         elif isinstance(m, AIMessage):
-            result.append({"role": "ai", "content": m.content})
+            meta = getattr(m, "additional_kwargs", {}) or {}
+            result.append({
+                "role": "ai",
+                "content": m.content,
+                "citations": meta.get("citations", []),
+                "confidence_score": meta.get("confidence_score"),
+            })
     return result
 
 
 def deserialize_history(history: list) -> list:
-    """Convert JSON dicts back to LangChain messages."""
+    """Convert JSON dicts back to LangChain messages, preserving citations/confidence
+    in additional_kwargs so they survive a round trip through Cosmos."""
     result = []
     for m in history:
         if m["role"] == "human":
             result.append(HumanMessage(content=m["content"]))
         elif m["role"] == "ai":
-            result.append(AIMessage(content=m["content"]))
+            result.append(AIMessage(
+                content=m["content"],
+                additional_kwargs={
+                    "citations": m.get("citations", []),
+                    "confidence_score": m.get("confidence_score"),
+                }
+            ))
     return result
 
 
 def get_session(session_key: str) -> tuple[list, str]:
     try:
-        item = cosmos_container.read_item(item=session_key, partition_key=session_key)
+        container = get_sessions_container()
+        item = container.read_item(item=session_key, partition_key=session_key)
         return deserialize_history(item.get("history", [])), item.get("current_topic", "")
     except exceptions.CosmosResourceNotFoundError:
         return [], ""
-    except Exception:
+    except Exception as e:
+        print(f"[get_session] Cosmos read failed for {session_key}: {e}")
         return [], ""
 
-def save_session(session_key: str, history: list, current_topic: str) -> None:
+
+def save_session(session_key: str, history: list, current_topic: str,
+                  user_id: str, session_id: str, user_type: str) -> None:
     try:
-        cosmos_container.upsert_item({
-            "id":            session_key,
-            "session_key":   session_key,
-            "history":       serialize_history(history),
-            "current_topic": current_topic
+        container = get_sessions_container()
+        serialized = serialize_history(history)
+
+        # preserve first_query across turns instead of overwriting it every save
+        first_query = None
+        try:
+            existing = container.read_item(item=session_key, partition_key=session_key)
+            first_query = existing.get("first_query")
+        except exceptions.CosmosResourceNotFoundError:
+            pass
+
+        if not first_query:
+            first_human = next((h["content"] for h in serialized if h["role"] == "human"), "")
+            first_query = first_human[:80]
+
+        container.upsert_item({
+            "id":             session_key,
+            "session_key":    session_key,
+            "session_id":     session_id,
+            "user_id":        user_id,
+            "user_type":      user_type,
+            "history":        serialized,
+            "current_topic":  current_topic,
+            "first_query":    first_query,
+            "timestamp":      datetime.now(timezone.utc).isoformat(),
         })
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[save_session] Cosmos write failed for {session_key}: {e}")
 
 
-# ── Request / Response ────────────────────────────────────────────────────────
+# ── Query log / FAQ helpers ───────────────────────────────────────────────────
+def normalize_query(text: str) -> str:
+    text = text.lower().strip()
+    text = re.sub(r'[^a-z0-9\s]', '', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+
+def log_query(user_id: str, session_id: str, user_type: str, query_text: str) -> None:
+    try:
+        container = get_querylog_container()
+        container.upsert_item({
+            "id":                    str(uuid.uuid4()),
+            "user_id":               user_id,
+            "session_id":            session_id,
+            "user_type":             user_type,
+            "query_text_raw":        query_text,
+            "query_text_normalized": normalize_query(query_text),
+            "timestamp":             datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception as e:
+        print(f"[log_query] Cosmos write failed for user {user_id}: {e}")
+
+
+# ── Request / Response models ─────────────────────────────────────────────────
 class QueryRequest(BaseModel):
     query: str
     session_id: str
     user_type: str
+    user_id: str
 
 
 class QueryResponse(BaseModel):
@@ -113,11 +209,32 @@ class QueryResponse(BaseModel):
     guardrail_response: str
 
 
+class SessionSummary(BaseModel):
+    session_id: str
+    user_type: str
+    timestamp: str
+    preview: str
+
+
+class SessionHistoryResponse(BaseModel):
+    history: list
+
+
+class FaqItem(BaseModel):
+    question: str
+    source: str  # "real" or "seed"
+    answer: str | None = None
+    citations: list | None = None
+    confidence_score: float | None = None
+
+
 # ── Query endpoint ────────────────────────────────────────────────────────────
 @api.post("/query")
 @limiter.limit("5/minute")
 async def query(request: Request, body: QueryRequest):
     session_key = f"{body.session_id}_{body.user_type}"
+
+    log_query(body.user_id, body.session_id, body.user_type, body.query)
 
     conversation_history, current_topic = get_session(session_key)
     result = agent_app.invoke({
@@ -138,17 +255,23 @@ async def query(request: Request, body: QueryRequest):
         "final_response":       "",
     })
 
+    def _save():
+        save_session(
+            session_key, result["conversation_history"], result.get("current_topic", ""),
+            body.user_id, body.session_id, body.user_type,
+        )
+
     if result.get("cache_hit"):
         last_message = result["final_response"]
-        save_session(session_key, result["conversation_history"], result.get("current_topic", ""))
+        _save()
     elif result["guardrail_status"] == "blocked_input":
         last_message = result["guardrail_response"]
     elif result["guardrail_status"] == "blocked_output":
         last_message = result["guardrail_response"]
-        save_session(session_key, result["conversation_history"], result.get("current_topic", ""))
+        _save()
     else:
         last_message = result["conversation_history"][-1].content
-        save_session(session_key, result["conversation_history"], result.get("current_topic", ""))
+        _save()
 
     return QueryResponse(
         answer=last_message,
@@ -156,3 +279,120 @@ async def query(request: Request, body: QueryRequest):
         confidence_score=result["confidence_score"],
         guardrail_response=result["guardrail_response"],
     )
+
+
+# ── History endpoints ─────────────────────────────────────────────────────────
+@api.get("/sessions", response_model=list[SessionSummary])
+async def list_sessions(user_id: str):
+    try:
+        container = get_sessions_container()
+        query_text = (
+            "SELECT c.session_id, c.user_type, c.timestamp, c.first_query "
+            "FROM c WHERE c.user_id = @user_id ORDER BY c.timestamp DESC"
+        )
+        items = list(container.query_items(
+            query=query_text,
+            parameters=[{"name": "@user_id", "value": user_id}],
+            enable_cross_partition_query=True,
+        ))[:20]
+
+        return [
+            SessionSummary(
+                session_id=it.get("session_id", ""),
+                user_type=it.get("user_type", ""),
+                timestamp=it.get("timestamp", ""),
+                preview=it.get("first_query", ""),
+            )
+            for it in items
+        ]
+    except Exception as e:
+        print(f"[list_sessions] failed for user {user_id}: {e}")
+        return []
+
+
+@api.get("/sessions/{session_id}", response_model=SessionHistoryResponse)
+async def get_session_history(session_id: str, user_id: str, user_type: str):
+    session_key = f"{session_id}_{user_type}"
+    history, _ = get_session(session_key)
+
+    serialized = []
+    for m in history:
+        if isinstance(m, HumanMessage):
+            serialized.append({"role": "human", "content": m.content})
+        elif isinstance(m, AIMessage):
+            meta = getattr(m, "additional_kwargs", {}) or {}
+            serialized.append({
+                "role": "ai",
+                "content": m.content,
+                "citations": meta.get("citations", []),
+                "confidence_score": meta.get("confidence_score"),
+            })
+
+    if not serialized:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    return SessionHistoryResponse(history=serialized)
+
+
+# ── FAQ endpoint ───────────────────────────────────────────────────────────────
+FAQ_MIN_COUNT = 3
+FAQ_SLOTS = 5
+
+
+@api.get("/faq", response_model=list[FaqItem])
+async def get_faq():
+    real_items: list[FaqItem] = []
+
+    try:
+        container = get_querylog_container()
+        items = list(container.query_items(
+            query="SELECT c.query_text_raw, c.query_text_normalized FROM c",
+            enable_cross_partition_query=True,
+        ))
+
+        counts: dict[str, dict] = {}
+        for it in items:
+            norm = it.get("query_text_normalized", "")
+            if not norm:
+                continue
+            if norm not in counts:
+                counts[norm] = {"count": 0, "raw": it.get("query_text_raw", norm)}
+            counts[norm]["count"] += 1
+            counts[norm]["raw"] = it.get("query_text_raw", counts[norm]["raw"])  # most recent wins
+
+        qualifying = [
+            (norm, data) for norm, data in counts.items() if data["count"] >= FAQ_MIN_COUNT
+        ]
+        qualifying.sort(key=lambda x: x[1]["count"], reverse=True)
+
+        for norm, data in qualifying[:FAQ_SLOTS]:
+            real_items.append(FaqItem(question=data["raw"], source="real"))
+    except Exception as e:
+        print(f"[get_faq] query_log aggregation failed: {e}")
+
+    if len(real_items) >= FAQ_SLOTS:
+        return real_items[:FAQ_SLOTS]
+
+    # pad with seed questions, skipping near-duplicates of real ones already included
+    real_normalized = {normalize_query(i.question) for i in real_items}
+    seed_items: list[FaqItem] = []
+
+    try:
+        container = get_faqseed_container()
+        seeds = list(container.query_items(query="SELECT * FROM c", enable_cross_partition_query=True))
+        for s in seeds:
+            if normalize_query(s.get("question_text", "")) in real_normalized:
+                continue
+            seed_items.append(FaqItem(
+                question=s.get("question_text", ""),
+                source="seed",
+                answer=s.get("answer", ""),
+                citations=s.get("citations", []),
+                confidence_score=s.get("confidence_score"),
+            ))
+            if len(real_items) + len(seed_items) >= FAQ_SLOTS:
+                break
+    except Exception as e:
+        print(f"[get_faq] faq_seed read failed: {e}")
+
+    return (real_items + seed_items)[:FAQ_SLOTS]
