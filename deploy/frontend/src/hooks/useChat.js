@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
-import { sendQuery } from '../api/client'
+import { sendQuery, getSessionHistory } from '../api/client'
+import { getUserId } from '../lib/userId'
 
 function newSessionId() {
   return crypto.randomUUID()
@@ -11,6 +12,7 @@ export function useChat() {
   const [slowServer, setSlowServer] = useState(false)
   const [userType, setUserType] = useState(null)
   const sessionId = useRef(newSessionId())
+  const userId = useRef(getUserId())
   const slowTimer = useRef(null)
 
   const selectMode = useCallback((mode) => {
@@ -34,6 +36,7 @@ export function useChat() {
         query,
         session_id: sessionId.current,
         user_type: userType,
+        user_id: userId.current,
       })
 
       const isGuardrail = data.guardrail_response !== ''
@@ -47,7 +50,7 @@ export function useChat() {
       }
 
       setMessages(prev => [...prev, botMsg])
-    } catch (err) {
+    } catch {
       setMessages(prev => [...prev, {
         role: 'bot',
         content: 'Something went wrong. Please try again.',
@@ -71,5 +74,51 @@ export function useChat() {
     setSlowServer(false)
   }, [])
 
-  return { messages, loading, slowServer, userType, send, newConversation, selectMode }
+  const loadConversation = useCallback(async (session_id, loadedUserType) => {
+    try {
+      const data = await getSessionHistory(session_id, userId.current, loadedUserType)
+      const mapped = (data.history || []).map(m => ({
+        role: m.role === 'human' ? 'user' : 'bot',
+        content: m.content,
+      }))
+      sessionId.current = session_id
+      setUserType(loadedUserType)
+      setMessages(mapped)
+    } catch {
+      setMessages([{
+        role: 'bot',
+        content: 'Could not load that conversation. Please try again.',
+        error: true,
+        citations: [],
+        confidence_score: null,
+        guardrail: false,
+      }])
+    }
+  }, [])
+
+  const sendFaqAnswer = useCallback((question, answer, citations, confidence_score) => {
+    setMessages(prev => [
+      ...prev,
+      { role: 'user', content: question },
+      {
+        role: 'bot',
+        content: answer,
+        confidence_score: confidence_score ?? null,
+        citations: citations || [],
+        guardrail: false,
+      },
+    ])
+  }, [])
+
+  return {
+    messages,
+    loading,
+    slowServer,
+    userType,
+    send,
+    newConversation,
+    selectMode,
+    loadConversation,
+    sendFaqAnswer,
+  }
 }
