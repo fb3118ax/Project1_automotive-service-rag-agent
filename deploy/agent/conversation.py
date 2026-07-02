@@ -1,4 +1,5 @@
 import tiktoken
+import re
 from langchain_core.messages import AIMessage, HumanMessage
 from config.settings import client, LLM_MODEL, CONFIDENCE_THRESHOLD, OWNER_MAX_WORDS, TOKEN_LIMIT
 from agent.retrievers import _is_context_free_image_request, IMAGE_REQUEST_KEYWORDS
@@ -10,8 +11,10 @@ def count_tokens(text):
 
 def _format_caption(caption: str) -> str:
     clean = caption.strip().strip('*')
-    first_line = clean.split('\n')[0].strip()
-    return f"*{first_line}*"
+    clean = re.sub(r'\s+', ' ', clean).strip()  
+    clean = re.sub(r'(?<!^)\s*(?=[Ii]tem \d+\b)', '\n', clean)
+    lines = [line.strip() for line in clean.split('\n') if line.strip()]
+    return "\n".join(f"*{line}*" for line in lines)
 
 
 def _dedup_images(image_paths, image_captions):
