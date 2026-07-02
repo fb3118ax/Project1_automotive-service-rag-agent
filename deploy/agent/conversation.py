@@ -14,7 +14,7 @@ def _format_caption(caption: str) -> str:
     clean = re.sub(r'\s+', ' ', clean).strip()  
     clean = re.sub(r'(?<!^)\s*(?=[Ii]tem \d+\b)', '\n', clean)
     lines = [line.strip() for line in clean.split('\n') if line.strip()]
-    return "\n".join(f"*{line}*" for line in lines)
+    return "\n\n".join(f"*{line}*" for line in lines)
 
 
 def _dedup_images(image_paths, image_captions):
