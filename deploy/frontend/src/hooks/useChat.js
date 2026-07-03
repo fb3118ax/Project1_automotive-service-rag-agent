@@ -11,6 +11,7 @@ export function useChat() {
   const [loading, setLoading] = useState(false)
   const [slowServer, setSlowServer] = useState(false)
   const [userType, setUserType] = useState(null)
+  const [sessionVersion, setSessionVersion] = useState(0)
   const sessionId = useRef(newSessionId())
   const userId = useRef(getUserId())
   const slowTimer = useRef(null)
@@ -50,6 +51,12 @@ export function useChat() {
       }
 
       setMessages(prev => [...prev, botMsg])
+
+      // Session was saved on the backend (guardrail responses skip save_session
+      // upstream — if that's not actually true, this should fire unconditionally).
+      if (!isGuardrail) {
+        setSessionVersion(v => v + 1)
+      }
     } catch (err) {
       setMessages(prev => [...prev, {
         role: 'bot',
@@ -123,5 +130,6 @@ export function useChat() {
     send, newConversation, selectMode,
     loadConversation, sendFaqAnswer,
     userId: userId.current,
+    sessionVersion,
   }
 }

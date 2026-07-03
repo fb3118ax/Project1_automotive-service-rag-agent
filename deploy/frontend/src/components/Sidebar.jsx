@@ -14,16 +14,16 @@ function timeAgo(isoString) {
   return `${days}d ago`
 }
 
-export default function Sidebar({ userType, userId, onNewConversation, onLoadConversation, onSend, onFaqSeedClick }) {
+export default function Sidebar({ userType, userId, sessionVersion, onNewConversation, onLoadConversation, onSend, onFaqSeedClick }) {
   const isOwner = userType === 'owner'
   const [sessions, setSessions] = useState([])
   const [faq, setFaq] = useState([])
 
   useEffect(() => {
     if (!userId) return
-    getSessions(userId).then(setSessions).catch(() => setSessions([]))
-    getFaq().then(setFaq).catch(() => setFaq([]))
-  }, [userId])
+    getSessions(userId).then(setSessions).catch(err => { console.error('[Sidebar] getSessions failed:', err); setSessions([]) })
+    getFaq().then(setFaq).catch(err => { console.error('[Sidebar] getFaq failed:', err); setFaq([]) })
+  }, [userId, sessionVersion])
 
   const handleFaqClick = (item) => {
     if (item.source === 'seed') {

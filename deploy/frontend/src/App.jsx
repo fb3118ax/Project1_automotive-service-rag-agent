@@ -35,6 +35,7 @@ export default function App() {
     messages, loading, slowServer, userType,
     send, newConversation, selectMode,
     loadConversation, sendFaqAnswer, userId,
+    sessionVersion,
   } = useChat()
   const bottomRef = useRef(null)
 
@@ -51,6 +52,7 @@ export default function App() {
       <Sidebar
         userType={userType}
         userId={userId}
+        sessionVersion={sessionVersion}
         onNewConversation={newConversation}
         onLoadConversation={loadConversation}
         onSend={send}
