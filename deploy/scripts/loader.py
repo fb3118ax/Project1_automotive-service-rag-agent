@@ -39,7 +39,7 @@ def loader_doc():
                 #     shutil.rmtree("images")                
                 os.makedirs("images", exist_ok=True)
                 for page in pdf.pages:
-                    if page.page_number <= 21 or page.page_number >= 460:
+                    if page.page_number <= 6 or page.page_number >= 460:
                         continue  # skip these pages
                     texts = clean_text(page.extract_text())
                     if texts:

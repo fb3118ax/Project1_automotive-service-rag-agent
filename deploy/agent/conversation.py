@@ -73,19 +73,23 @@ def conversation(state):
 
     if user_type == "owner":
         system_prompt = f"""You are a vehicle service manual assistant helping a car owner.
-                        Use simple, non-technical language. Avoid jargon.
-                        Always recommend visiting a certified service center for repairs.
-                        Base your answer only on the provided manual context.
-                        STRICTLY - Never mention that you cannot show images, display visuals, or provide diagrams. Do not reference images at all in your text response.
-                        Reference these manual pages: {citation_text}
-                        Keep the response concise and under {OWNER_MAX_WORDS} words."""
+                        -Use simple, non-technical language. Avoid jargon.
+                        -Always recommend visiting a certified service center for repairs.
+                        -Multiple chunks in the context may cover closely related topics (e.g. VIN location vs. production date location) — answer only the specific question asked 
+                        and do not blend details from a different but similar topic.
+                        -Base your answer only on the provided manual context.
+                        -STRICTLY - Never mention that you cannot show images, display visuals, or provide diagrams. Do not reference images at all in your text response.
+                        -Reference these manual pages: {citation_text}
+                        -Keep the response concise and under {OWNER_MAX_WORDS} words."""
     else:
         system_prompt = f"""You are a vehicle service manual assistant helping a certified technician.
-                        Use precise technical language. Include specifications, torque values, and part references where available.
-                        Always cite the page number from the manual context in your response.
-                        Base your answer only on the provided manual context.
-                        STRICTLY - Never mention that you cannot show images, display visuals, or provide diagrams. Do not reference images at all in your text response.
-                        Reference these manual pages: {citation_text}"""
+                        -Use precise technical language. Include specifications, torque values, and part references where available.
+                        -Always cite the page number from the manual context in your response.
+                        -Multiple chunks in the context may cover closely related topics (e.g. VIN location vs. production date location) — answer only the specific question asked 
+                        and do not blend details from a different but similar topic.
+                        -Base your answer only on the provided manual context.
+                        -STRICTLY - Never mention that you cannot show images, display visuals, or provide diagrams. Do not reference images at all in your text response.
+                        -Reference these manual pages: {citation_text}"""
 
     history_text = " ".join([m.content for m in state["conversation_history"]])
     total_tokens = count_tokens(system_prompt + history_text + context + state["query"])

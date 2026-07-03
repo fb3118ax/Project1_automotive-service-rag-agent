@@ -55,7 +55,6 @@ def _is_context_free_image_request(query: str) -> bool:
 def text_retriever(state):
     seen_contents = set()
     chunks = []
-
     all_queries = [state["query"]] + state["query_variations"]
 
     for query in all_queries:
@@ -63,13 +62,11 @@ def text_retriever(state):
         for doc, score in results:
             if doc.page_content not in seen_contents:
                 seen_contents.add(doc.page_content)
-                chunks.append({
-                    "content":  doc.page_content,
-                    "metadata": doc.metadata,
-                    "score":    score
-                })
+                chunks.append({"content": doc.page_content, "metadata": doc.metadata, "score": score})
 
-    return {"retrieved_chunks": chunks}
+    # lower cosine distance = more similar; sort ascending and cap
+    chunks.sort(key=lambda c: c["score"])
+    return {"retrieved_chunks": chunks[:RETRIEVAL_K]}
 
 
 def _gather_image_candidates(state):
@@ -152,9 +149,10 @@ Return [] if none are relevant. No other text, no markdown fences.
             candidates[i] for i in kept_indices
             if isinstance(i, int) and 0 <= i < len(candidates)
         ]
+        print(f"Rerank OK: {len(candidates)} candidates -> kept {len(kept)}: {[c['path'] for c in kept]}")
         return kept[:IMAGE_MAX_RESULTS]
     except Exception as e:
-        print(f"Image rerank failed, falling back to unranked candidates: {e}")
+        print(f"Image rerank FAILED, falling back to unranked candidates: {e}")
         return candidates[:IMAGE_MAX_RESULTS]
 
 
