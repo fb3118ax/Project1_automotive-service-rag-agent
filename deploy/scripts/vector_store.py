@@ -1,7 +1,5 @@
-import shutil
 import chromadb
 import hashlib
-import os
 from langchain_openai import OpenAIEmbeddings
 from langchain_chroma import Chroma
 from config.settings import DB_PATH, EMBEDDING_MODEL
@@ -21,15 +19,14 @@ def _build_chunk_id(doc):
     duplicated chunk effectively gets double weight in the index, which can
     crowd a correct-but-only-inserted-once chunk out of the top-k results.
 
-    Built from source file + page + image_path (empty for text chunks) +
-    the chunk text itself, so re-ingesting the same chunk always produces
-    the same ID, while two genuinely different chunks (even on the same
-    page) still get different IDs.
+    Built from source file + page number + the chunk text itself, so
+    re-ingesting the same chunk always produces the same ID, while two
+    genuinely different chunks (even on the same page) still get different
+    IDs.
     """
     key = "|".join([
         doc.metadata.get("source_file", ""),
         str(doc.metadata.get("page_number", "")),
-        doc.metadata.get("image_path", ""),
         doc.page_content,
     ])
     return hashlib.md5(key.encode("utf-8")).hexdigest()
@@ -38,7 +35,6 @@ def _build_chunk_id(doc):
 def vector_store(chunks, collection_name, persist_dir=DB_PATH, rebuild=False):
     if rebuild:
         try:
-            import chromadb
             temp_client = chromadb.PersistentClient(path=persist_dir)
             temp_client.delete_collection(collection_name)
             print(f"Collection '{collection_name}' deleted.")

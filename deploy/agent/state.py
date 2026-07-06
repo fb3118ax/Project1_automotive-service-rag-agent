@@ -17,8 +17,6 @@ class AgentState(TypedDict):
     confidence_score: float
     conversation_history: Annotated[list[BaseMessage], operator.add]
     citations: Annotated[list[Citation], operator.add]
-    image_paths: Annotated[list[str], operator.add]
-    image_captions: Annotated[list[str], operator.add]
     current_topic: str
     final_response: str       
-    cache_hit: bool          
+    cache_hit: bool

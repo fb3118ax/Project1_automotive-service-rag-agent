@@ -11,4 +11,5 @@ def query_expansion(state):
     )
     raw = response.choices[0].message.content.strip()
     variations = [v.strip() for v in raw.split("\n") if v.strip()]
+    print(f"[query_expansion] original: {state['query']!r} -> variants: {variations}")  # temp diagnostic
     return {"query_variations": variations}

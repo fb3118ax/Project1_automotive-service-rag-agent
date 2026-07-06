@@ -249,8 +249,6 @@ async def query(request: Request, body: QueryRequest):
         "confidence_score":     0.0,
         "citations":            [],
         "current_topic":        current_topic,
-        "image_paths":          [],
-        "image_captions":       [],
         "cache_hit":            False,
         "final_response":       "",
     })

@@ -1,7 +1,7 @@
 from langgraph.graph import StateGraph, END
 from agent.state import AgentState
 from agent.classifier import classifier
-from agent.retrievers import text_retriever, image_retriever
+from agent.retrievers import text_retriever
 from agent.unknown_handler import unknown_handler
 from agent.confidence_score import confidence_score
 from agent.conversation import conversation
@@ -13,10 +13,7 @@ from agent.semantic_cache import check_cache
 
 def route_after_input_guard(state):
     if state["guardrail_status"] == "pass":
-        from agent.retrievers import _is_context_free_image_request
-        if _is_context_free_image_request(state["query"]):
-            return "text_retriever"
-        return "check_cache"          
+        return "check_cache"
     return "blocked_input"
 
 
@@ -37,11 +34,10 @@ def route_intent(state):
 
 graph = StateGraph(AgentState)
 graph.add_node('input_guardrail',  input_guardrail)
-graph.add_node('check_cache',      check_cache)       
+graph.add_node('check_cache',      check_cache)
 graph.add_node('classifier',       classifier)
 graph.add_node('query_expansion',  query_expansion)
 graph.add_node('text_retriever',   text_retriever)
-graph.add_node('image_retriever',  image_retriever)
 graph.add_node('unknown_handler',  unknown_handler)
 graph.add_node('confidence',       confidence_score)
 graph.add_node('conversation',     conversation)
@@ -55,7 +51,6 @@ graph.add_conditional_edges(
     {
         "blocked_input":  END,
         "check_cache":    "check_cache",
-        "text_retriever": "text_retriever",   
     }
 )
 
@@ -63,7 +58,7 @@ graph.add_conditional_edges(
     "check_cache",
     route_after_cache,
     {
-        "cache_hit_end": END,     
+        "cache_hit_end": END,
         "classifier":    "classifier",
     }
 )
@@ -78,8 +73,7 @@ graph.add_conditional_edges(
 )
 
 graph.add_edge('query_expansion',  'text_retriever')
-graph.add_edge('text_retriever',   'image_retriever')
-graph.add_edge('image_retriever',  'confidence')
+graph.add_edge('text_retriever',   'confidence')
 graph.add_edge('unknown_handler',  END)
 graph.add_edge('confidence',       'conversation')
 graph.add_edge('conversation',     'output_guardrail')

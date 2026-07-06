@@ -1,60 +1,14 @@
 import tiktoken
-import re
 from langchain_core.messages import AIMessage, HumanMessage
 from config.settings import client, LLM_MODEL, CONFIDENCE_THRESHOLD, OWNER_MAX_WORDS, TOKEN_LIMIT
-from agent.retrievers import _is_context_free_image_request, IMAGE_REQUEST_KEYWORDS
 
 enc = tiktoken.encoding_for_model("gpt-4o")
 
 def count_tokens(text):
     return len(enc.encode(text))
 
-def _format_caption(caption: str) -> str:
-    clean = caption.strip().strip('*')
-    clean = re.sub(r'\s+', ' ', clean).strip()  
-    clean = re.sub(r'(?<!^)\s*(?=[Ii]tem \d+\b)', '\n', clean)
-    lines = [line.strip() for line in clean.split('\n') if line.strip()]
-    return "\n\n".join(f"*{line}*" for line in lines)
-
-
-def _dedup_images(image_paths, image_captions):
-    """Deduplicate image paths preserving order."""
-    seen = set()
-    deduped = []
-    for url, caption in zip(image_paths, image_captions):
-        if url not in seen:
-            seen.add(url)
-            deduped.append((url, caption))
-    return deduped
-
 
 def conversation(state):
-    query_lower = state["query"].lower()
-    explicit_image_request = any(word in query_lower for word in IMAGE_REQUEST_KEYWORDS)
-
-    if _is_context_free_image_request(state["query"]) or explicit_image_request:
-        image_paths = state.get("image_paths", [])
-        image_captions = state.get("image_captions", [])
-        if image_paths:
-            deduped = _dedup_images(image_paths, image_captions)
-            parts = []
-            for url, caption in deduped:
-                parts.append(f"![Image]({url})")
-                if caption:
-                    parts.append(_format_caption(caption))
-            answer = "**Relevant Images:**\n" + "\n".join(parts)
-        else:
-            answer = "No relevant images found in the manual for this query."
-
-        new_topic = state["query"] if not _is_context_free_image_request(state["query"]) else state.get("current_topic", "")
-        return {
-            "current_topic": new_topic,
-            "conversation_history": state["conversation_history"] + [
-                HumanMessage(content=state["query"]),
-                AIMessage(content=answer)
-            ]
-        }
-
     if not state["retrieved_chunks"]:
         return {
             "current_topic": state.get("current_topic", ""),
@@ -78,7 +32,6 @@ def conversation(state):
                         -Multiple chunks in the context may cover closely related topics (e.g. VIN location vs. production date location) — answer only the specific question asked 
                         and do not blend details from a different but similar topic.
                         -Base your answer only on the provided manual context.
-                        -STRICTLY - Never mention that you cannot show images, display visuals, or provide diagrams. Do not reference images at all in your text response.
                         -Reference these manual pages: {citation_text}
                         -Keep the response concise and under {OWNER_MAX_WORDS} words."""
     else:
@@ -88,7 +41,6 @@ def conversation(state):
                         -Multiple chunks in the context may cover closely related topics (e.g. VIN location vs. production date location) — answer only the specific question asked 
                         and do not blend details from a different but similar topic.
                         -Base your answer only on the provided manual context.
-                        -STRICTLY - Never mention that you cannot show images, display visuals, or provide diagrams. Do not reference images at all in your text response.
                         -Reference these manual pages: {citation_text}"""
 
     history_text = " ".join([m.content for m in state["conversation_history"]])
@@ -113,17 +65,6 @@ def conversation(state):
 
     if state["confidence_score"] < CONFIDENCE_THRESHOLD:
         answer += "\n\n⚠️ Note: This answer is based on limited matches from the manual. Please verify with a certified technician."
-
-    image_paths = state.get("image_paths", [])
-    if image_paths:
-        image_captions = state.get("image_captions", [])
-        deduped = _dedup_images(image_paths, image_captions)
-        parts = []
-        for url, caption in deduped:
-            parts.append(f"![Image]({url})")
-            if caption:
-                parts.append(_format_caption(caption))
-        answer += "\n\n**Relevant Images:**\n" + "\n".join(parts)
 
     new_topic = state["query"]
     return {

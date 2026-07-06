@@ -7,10 +7,9 @@ ChromaDB-backed semantic cache for MechAI.
 - Keyed by: embed(query + user_type)
 - Similarity threshold: > 0.95 (cosine)
 - TTL: 30 days via cached_at metadata
-- Stores: response, image_paths, image_captions, confidence_score, current_topic
+- Stores: response, confidence_score, current_topic
 """
 
-import json
 import logging
 from datetime import datetime, timedelta
 import chromadb
@@ -74,8 +73,6 @@ def check_cache(state: AgentState) -> AgentState:
                     **state,
                     "cache_hit": True,
                     "final_response":   meta["response"],
-                    "image_paths":      json.loads(meta["image_paths"]),
-                    "image_captions":   json.loads(meta["image_captions"]),
                     "confidence_score": float(meta["confidence_score"]),
                     "current_topic":    meta["current_topic"],
                 }
@@ -103,8 +100,6 @@ def write_cache(state: AgentState) -> None:
             documents=[doc_id],
             metadatas=[{
                 "response":         state.get("final_response", ""),
-                "image_paths":      json.dumps(state.get("image_paths", [])),
-                "image_captions":   json.dumps(state.get("image_captions", [])),
                 "confidence_score": str(state.get("confidence_score", 0.0)),
                 "current_topic":    state.get("current_topic", ""),
                 "cached_at":        datetime.utcnow().isoformat(),

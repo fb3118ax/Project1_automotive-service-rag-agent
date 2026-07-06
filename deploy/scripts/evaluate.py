@@ -72,7 +72,6 @@ def run_pipeline(question: str) -> dict:
         "retrieved_chunks":     [],
         "confidence_score":     0.0,
         "citations":            [],
-        "image_paths":          []
     }, config=config)
 
     # Extract answer — same logic as app.py
