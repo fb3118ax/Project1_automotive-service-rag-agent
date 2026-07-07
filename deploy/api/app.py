@@ -35,7 +35,6 @@ COSMOS_DATABASE          = "mechai-db"
 
 SESSIONS_CONTAINER  = "sessions"
 QUERYLOG_CONTAINER  = "query_log"
-FAQSEED_CONTAINER   = "faq_seed"
 
 SESSION_TTL_SECONDS   = 1296000  # 15 days
 QUERYLOG_TTL_SECONDS  = 1296000  # 15 days
@@ -81,10 +80,6 @@ def get_sessions_container():
 
 def get_querylog_container():
     return get_container(QUERYLOG_CONTAINER, "/user_id", default_ttl=QUERYLOG_TTL_SECONDS)
-
-
-def get_faqseed_container():
-    return get_container(FAQSEED_CONTAINER, "/id", default_ttl=None)
 
 
 # ── Session helpers ───────────────────────────────────────────────────────────
@@ -222,10 +217,6 @@ class SessionHistoryResponse(BaseModel):
 
 class FaqItem(BaseModel):
     question: str
-    source: str  # "real" or "seed"
-    answer: str | None = None
-    citations: list | None = None
-    confidence_score: float | None = None
 
 
 # ── Query endpoint ────────────────────────────────────────────────────────────
@@ -364,33 +355,8 @@ async def get_faq():
         qualifying.sort(key=lambda x: x[1]["count"], reverse=True)
 
         for norm, data in qualifying[:FAQ_SLOTS]:
-            real_items.append(FaqItem(question=data["raw"], source="real"))
+            real_items.append(FaqItem(question=data["raw"]))
     except Exception as e:
         print(f"[get_faq] query_log aggregation failed: {e}")
 
-    if len(real_items) >= FAQ_SLOTS:
-        return real_items[:FAQ_SLOTS]
-
-    # pad with seed questions, skipping near-duplicates of real ones already included
-    real_normalized = {normalize_query(i.question) for i in real_items}
-    seed_items: list[FaqItem] = []
-
-    try:
-        container = get_faqseed_container()
-        seeds = list(container.query_items(query="SELECT * FROM c", enable_cross_partition_query=True))
-        for s in seeds:
-            if normalize_query(s.get("question_text", "")) in real_normalized:
-                continue
-            seed_items.append(FaqItem(
-                question=s.get("question_text", ""),
-                source="seed",
-                answer=s.get("answer", ""),
-                citations=s.get("citations", []),
-                confidence_score=s.get("confidence_score"),
-            ))
-            if len(real_items) + len(seed_items) >= FAQ_SLOTS:
-                break
-    except Exception as e:
-        print(f"[get_faq] faq_seed read failed: {e}")
-
-    return (real_items + seed_items)[:FAQ_SLOTS]
+    return real_items[:FAQ_SLOTS]

@@ -7,9 +7,10 @@ ChromaDB-backed semantic cache for MechAI.
 - Keyed by: embed(query + user_type)
 - Similarity threshold: > 0.95 (cosine)
 - TTL: 30 days via cached_at metadata
-- Stores: response, confidence_score, current_topic
+- Stores: response, confidence_score, current_topic, citations
 """
 
+import json
 import logging
 from datetime import datetime, timedelta
 import chromadb
@@ -69,12 +70,23 @@ def check_cache(state: AgentState) -> AgentState:
                 if _is_expired(meta["cached_at"]):
                     return {**state, "cache_hit": False}
                 
+                # meta.get(...) with a "[]" default handles cache entries
+                # written before citations were persisted (pre-fix rows in
+                # an existing mechai_cache_db won't have this key at all).
+                citations_raw = meta.get("citations", "[]")
+                try:
+                    citations = json.loads(citations_raw) if citations_raw else []
+                except (TypeError, json.JSONDecodeError):
+                    logger.warning(f"Cache hit with corrupt citations JSON for: {query!r}")
+                    citations = []
+
                 return {
                     **state,
                     "cache_hit": True,
                     "final_response":   meta["response"],
                     "confidence_score": float(meta["confidence_score"]),
                     "current_topic":    meta["current_topic"],
+                    "citations":        citations,
                 }
 
     except Exception as e:        
@@ -102,6 +114,7 @@ def write_cache(state: AgentState) -> None:
                 "response":         state.get("final_response", ""),
                 "confidence_score": str(state.get("confidence_score", 0.0)),
                 "current_topic":    state.get("current_topic", ""),
+                "citations":        json.dumps(state.get("citations", [])),
                 "cached_at":        datetime.utcnow().isoformat(),
             }],
         )

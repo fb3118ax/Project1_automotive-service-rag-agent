@@ -5,4 +5,4 @@ Architecture/
 .env
 __pycache__/
 *.pyc
-
+mechai_cache_db/
