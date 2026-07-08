@@ -21,10 +21,7 @@ api.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 api.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://project1-automotive-service-rag-age.vercel.app",
-        "https://project1-automotive-service-rag-agent-etro5jdmh.vercel.app"
-    ],
+    allow_origin_regex=r"https://mech-ai-automotive-service-intelligence.*\.vercel\.app",
     allow_methods=["*"],
     allow_headers=["*"],
 )
