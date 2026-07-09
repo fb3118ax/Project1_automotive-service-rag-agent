@@ -30,6 +30,10 @@ def classifier(state):
             warnings, procedures, error codes, dashboard indicators, safety systems,
             fluid types, component descriptions, operating instructions, diagnostics,
             or basic vehicle operation (entering, exiting, starting, driving the vehicle).
+            Also includes the vehicle's built-in emergency call system (SOS button, automatic
+            crash notification, emergency/breakdown assistance features) and how to use it —
+            even when phrased generically, e.g. "emergency contact", "emergency number",
+            "how do I call for help", "roadside assistance".
             Also includes requests to see images, diagrams, or visuals of any component or procedure.
 
             unknown: queries completely outside vehicle service manual scope.
