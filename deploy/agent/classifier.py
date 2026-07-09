@@ -50,8 +50,14 @@ def classifier(state):
     ]
 )
 
+    raw = response.choices[0].message.content
+    print(f"[classifier] raw output for {state['query']!r}: {raw!r}")
     intent = response.choices[0].message.content.strip().lower()
-    if intent not in VALID_ROUTES:
+    if "unknown" in intent:
+        intent = "unknown"
+    elif "text" in intent:
+        intent = "text"
+    else:
         intent = "unknown"
     
     return {"intent": intent}
