@@ -222,8 +222,6 @@ class FaqItem(BaseModel):
 async def query(request: Request, body: QueryRequest):
     session_key = f"{body.session_id}_{body.user_type}"
 
-    log_query(body.user_id, body.session_id, body.user_type, body.query)
-
     conversation_history, current_topic = get_session(session_key)
     result = agent_app.invoke({
         "query":                body.query,
@@ -240,6 +238,13 @@ async def query(request: Request, body: QueryRequest):
         "cache_hit":            False,
         "final_response":       "",
     })
+
+    # FIX: log_query moved here and gated on guardrail_status != "blocked_input".
+    # Previously it ran unconditionally before the guardrail check, so empty
+    # queries, greetings, off-topic, profanity, and injection attempts were
+    # all being written to query_log and could surface as "top" FAQs.
+    if result["guardrail_status"] != "blocked_input":
+        log_query(body.user_id, body.session_id, body.user_type, body.query)
 
     def _save():
         save_session(

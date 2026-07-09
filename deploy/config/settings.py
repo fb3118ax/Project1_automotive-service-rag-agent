@@ -35,6 +35,11 @@ CACHE_TTL_DAYS           = int(os.getenv("CACHE_TTL_DAYS", "30"))
 # ── Retrieval ─────────────────────────────────────────────────────────────────
 RETRIEVAL_K = int(os.getenv("RETRIEVAL_K", "4"))
 
+# Chunks below this many characters are treated as near-empty (bare section
+# headers like "Notes\nNOTES", stray page fragments) and excluded from
+# retrieval candidates before they can occupy a top-K slot or dilute confidence.
+MIN_CHUNK_CHARS = int(os.getenv("MIN_CHUNK_CHARS", "40"))
+
 # ── Confidence ────────────────────────────────────────────────────────────────
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.4"))
 
@@ -87,4 +92,3 @@ IMAGE_REQUEST_KEYWORDS = [
 ]
 IMAGE_CANDIDATE_K = 4   # raw-query candidates pulled per query variation, BEFORE rerank
 IMAGE_MAX_RESULTS = 5   # upper bound on images shown, AFTER rerank — was a hardcoded
-                        

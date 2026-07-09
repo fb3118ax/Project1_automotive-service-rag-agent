@@ -14,6 +14,7 @@ import json
 import logging
 from datetime import datetime, timedelta
 import chromadb
+from langchain_core.messages import HumanMessage, AIMessage
 from agent.state import AgentState
 from config.settings import (
     CACHE_DB_PATH,
@@ -68,7 +69,10 @@ def check_cache(state: AgentState) -> AgentState:
             if similarity >= CACHE_SIMILARITY_THRESHOLD:
                 meta = results["metadatas"][0][0]
                 if _is_expired(meta["cached_at"]):
-                    return {**state, "cache_hit": False}
+                    # FIX: removed **state — conversation_history/citations use
+                    # operator.add reducers, so spreading state back in caused
+                    # history to duplicate on every cache check.
+                    return {"cache_hit": False}
                 
                 # meta.get(...) with a "[]" default handles cache entries
                 # written before citations were persisted (pre-fix rows in
@@ -81,17 +85,29 @@ def check_cache(state: AgentState) -> AgentState:
                     citations = []
 
                 return {
-                    **state,
+                    # FIX: removed **state here too, same reducer-duplication reason.
                     "cache_hit": True,
                     "final_response":   meta["response"],
                     "confidence_score": float(meta["confidence_score"]),
                     "current_topic":    meta["current_topic"],
                     "citations":        citations,
+                    # FIX: cache hits were never recorded in conversation_history,
+                    # so the next turn's LLM call had no memory of this exchange.
+                    "conversation_history": [
+                        HumanMessage(content=query),
+                        AIMessage(content=meta["response"]),
+                    ],
                 }
 
-    except Exception as e:        
+        # FIX: explicit miss return (previously fell through to `return None`
+        # when results["ids"][0] was empty or similarity was below threshold).
+        return {"cache_hit": False}
 
-        return {**state, "cache_hit": False}
+    except Exception as e:
+        # FIX: removed **state (reducer-duplication) and logged the exception
+        # instead of silently swallowing it.
+        logger.warning(f"Cache check failed (non-fatal): {e}")
+        return {"cache_hit": False}
 
 
 def write_cache(state: AgentState) -> None:
