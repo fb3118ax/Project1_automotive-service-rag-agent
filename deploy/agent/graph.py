@@ -7,6 +7,7 @@ from agent.confidence_score import confidence_score
 from agent.conversation import conversation
 from agent.input_guardrail import input_guardrail
 from agent.output_guardrail import output_guardrail
+from agent.alias_expansion import alias_expansion
 from agent.query_expansion import query_expansion
 from agent.semantic_cache import check_cache
 
@@ -18,10 +19,13 @@ def route_after_input_guard(state):
 
 
 def route_after_cache(state):
-    """Cache hit → END (response already populated). Miss → classifier."""
+    """Cache hit → END (response already populated). Miss → alias_expansion,
+    so the classifier always sees the alias-expanded query (e.g. bare 'dsc'
+    resolved to 'DSC (Dynamic Stability Control)') rather than routing
+    ambiguous shorthand to unknown before expansion gets a chance to run."""
     if state.get("cache_hit"):
         return "cache_hit_end"
-    return "classifier"
+    return "alias_expansion"
 
 
 def route_intent(state):
@@ -35,6 +39,7 @@ def route_intent(state):
 graph = StateGraph(AgentState)
 graph.add_node('input_guardrail',  input_guardrail)
 graph.add_node('check_cache',      check_cache)
+graph.add_node('alias_expansion',  alias_expansion)
 graph.add_node('classifier',       classifier)
 graph.add_node('query_expansion',  query_expansion)
 graph.add_node('text_retriever',   text_retriever)
@@ -58,10 +63,12 @@ graph.add_conditional_edges(
     "check_cache",
     route_after_cache,
     {
-        "cache_hit_end": END,
-        "classifier":    "classifier",
+        "cache_hit_end":   END,
+        "alias_expansion": "alias_expansion",
     }
 )
+
+graph.add_edge('alias_expansion', 'classifier')
 
 graph.add_conditional_edges(
     "classifier",

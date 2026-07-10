@@ -10,10 +10,30 @@ text_store = Chroma(
     embedding_function=embedding_model
 )
 
+# If this fraction of a candidate chunk's words already appear in a
+# higher-ranked, already-selected chunk, treat it as a near-duplicate
+# (chunker overlap producing two chunks that share most of the same
+# paragraph) and skip it rather than let it occupy a top-K slot.
+NEAR_DUP_OVERLAP_THRESHOLD = 0.7
+
+
+def _is_near_duplicate(content, selected_contents):
+    words = set(content.lower().split())
+    if not words:
+        return False
+    for selected in selected_contents:
+        selected_words = set(selected.lower().split())
+        if not selected_words:
+            continue
+        overlap = len(words & selected_words) / len(words)
+        if overlap >= NEAR_DUP_OVERLAP_THRESHOLD:
+            return True
+    return False
+
 
 def text_retriever(state):
     seen_contents = set()
-    chunks = []
+    candidates = []
     all_queries = [state["query"]] + state["query_variations"]
 
     for query in all_queries:
@@ -22,14 +42,23 @@ def text_retriever(state):
             content = doc.page_content
             if len(content.strip()) < MIN_CHUNK_CHARS:
                 continue
-            # normalized (lowercased) as the dedup key only — the LLM still sees
-            # the original casing in `content`, this just stops "Notes" vs "notes"
-            # style case variants from being double-counted as distinct chunks
             dedup_key = content.strip().lower()
             if dedup_key not in seen_contents:
                 seen_contents.add(dedup_key)
-                chunks.append({"content": content, "metadata": doc.metadata, "score": score})
+                candidates.append({"content": content, "metadata": doc.metadata, "score": score})
 
-    # lower cosine distance = more similar; sort ascending and cap
-    chunks.sort(key=lambda c: c["score"])
-    return {"retrieved_chunks": chunks[:RETRIEVAL_K]}
+    # lower cosine distance = more similar; sort ascending before near-dup filtering
+    # so the stronger (lower-distance) chunk of any overlapping pair wins the slot
+    candidates.sort(key=lambda c: c["score"])
+
+    chunks = []
+    selected_contents = []
+    for c in candidates:
+        if _is_near_duplicate(c["content"], selected_contents):
+            continue
+        chunks.append(c)
+        selected_contents.append(c["content"])
+        if len(chunks) == RETRIEVAL_K:
+            break
+
+    return {"retrieved_chunks": chunks}
