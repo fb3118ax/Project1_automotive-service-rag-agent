@@ -101,3 +101,6 @@ QUERYLOG_TTL_SECONDS  = 1296000  # 15 days
 
 FAQ_MIN_COUNT = 3
 FAQ_SLOTS = 5
+
+# ── Near-duplicate filtering ───────────────────────────────────────────────
+NEAR_DUP_OVERLAP_THRESHOLD = 0.7

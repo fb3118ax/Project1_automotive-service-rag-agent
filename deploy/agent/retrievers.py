@@ -1,4 +1,4 @@
-from config.settings import RETRIEVAL_K, embedding_model, TEXT_COLLECTION, DB_PATH, MIN_CHUNK_CHARS
+from config.settings import RETRIEVAL_K, embedding_model, TEXT_COLLECTION, DB_PATH, MIN_CHUNK_CHARS, NEAR_DUP_OVERLAP_THRESHOLD
 from langchain_chroma import Chroma
 import chromadb
 
@@ -14,7 +14,7 @@ text_store = Chroma(
 # higher-ranked, already-selected chunk, treat it as a near-duplicate
 # (chunker overlap producing two chunks that share most of the same
 # paragraph) and skip it rather than let it occupy a top-K slot.
-NEAR_DUP_OVERLAP_THRESHOLD = 0.7
+NEAR_DUP_OVERLAP_THRESHOLD = NEAR_DUP_OVERLAP_THRESHOLD
 
 
 def _is_near_duplicate(content, selected_contents):
