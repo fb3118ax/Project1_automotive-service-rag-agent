@@ -14,8 +14,9 @@ export async function sendQuery({ query, session_id, user_type, user_id }) {
   return response.json()
 }
 
-export async function getSessions(user_id) {
-  const response = await fetch(`${BASE_URL}/sessions?user_id=${encodeURIComponent(user_id)}`)
+export async function getSessions(user_id, user_type) {
+  const params = new URLSearchParams({ user_id, user_type })
+  const response = await fetch(`${BASE_URL}/sessions?${params}`)
   if (!response.ok) {
     throw new Error(`API error: ${response.status}`)
   }

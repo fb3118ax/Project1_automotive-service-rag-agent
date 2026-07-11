@@ -20,10 +20,10 @@ export default function Sidebar({ userType, userId, sessionVersion, onNewConvers
   const [faq, setFaq] = useState([])
 
   useEffect(() => {
-    if (!userId) return
-    getSessions(userId).then(setSessions).catch(err => { console.error('[Sidebar] getSessions failed:', err); setSessions([]) })
+    if (!userId || !userType) return
+    getSessions(userId, userType).then(setSessions).catch(err => { console.error('[Sidebar] getSessions failed:', err); setSessions([]) })
     getFaq().then(setFaq).catch(err => { console.error('[Sidebar] getFaq failed:', err); setFaq([]) })
-  }, [userId, sessionVersion])
+  }, [userId, userType, sessionVersion])
 
   const handleFaqClick = (item) => {
     if (item.source === 'seed') {

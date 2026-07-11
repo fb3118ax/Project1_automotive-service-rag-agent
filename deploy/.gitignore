@@ -6,3 +6,5 @@ Architecture/
 __pycache__/
 *.pyc
 mechai_cache_db/
+scripts/pipeline_debug.py
+scripts/debug_retrieval.py
