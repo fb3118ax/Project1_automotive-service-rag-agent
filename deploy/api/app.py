@@ -274,16 +274,19 @@ async def query(request: Request, body: QueryRequest):
 
 # ── History endpoints ─────────────────────────────────────────────────────────
 @api.get("/sessions", response_model=list[SessionSummary])
-async def list_sessions(user_id: str):
+async def list_sessions(user_id: str, user_type: str):
     try:
         container = get_sessions_container()
         query_text = (
             "SELECT c.session_id, c.user_type, c.timestamp, c.first_query "
-            "FROM c WHERE c.user_id = @user_id ORDER BY c.timestamp DESC"
+            "FROM c WHERE c.user_id = @user_id AND c.user_type = @user_type "
+            "ORDER BY c.timestamp DESC"
         )
         items = list(container.query_items(
             query=query_text,
-            parameters=[{"name": "@user_id", "value": user_id}],
+            parameters=[
+                {"name": "@user_id", "value": user_id},
+                {"name": "@user_type", "value": user_type},],
             enable_cross_partition_query=True,
         ))[:20]
 
