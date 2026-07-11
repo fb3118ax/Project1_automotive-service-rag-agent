@@ -1,5 +1,15 @@
 const BASE_URL = 'https://mechai-backend.delightfulsea-af823488.centralindia.azurecontainerapps.io'
 
+
+export async function login({ user_type, username, password }) {
+  const response = await fetch(`${BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_type, username, password }),
+  })
+  return response.json() // backend always returns 200 with success:true/false
+}
+
 export async function sendQuery({ query, session_id, user_type, user_id }) {
   const response = await fetch(`${BASE_URL}/query`, {
     method: 'POST',

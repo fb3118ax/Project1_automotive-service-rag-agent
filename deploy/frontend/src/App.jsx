@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Clock } from 'lucide-react'
 import { useChat } from './hooks/useChat'
 import Sidebar from './components/Sidebar'
 import MessageBubble from './components/MessageBubble'
 import InputBar from './components/InputBar'
 import ModeSelect from './components/ModeSelect'
+import Login from './components/Login'
 
 function TypingIndicator() {
   return (
@@ -38,6 +39,7 @@ export default function App() {
     sessionVersion,
   } = useChat()
   const bottomRef = useRef(null)
+  const [authToken, setAuthToken] = useState(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -46,6 +48,17 @@ export default function App() {
   if (!userType) {
     return <ModeSelect onSelect={selectMode} />
   }
+
+  if (!authToken) {
+    return (
+      <Login
+        userType={userType}
+        onSuccess={setAuthToken}
+        onBack={() => { setAuthToken(null); newConversation() }}
+      />
+    )
+  }
+
 
   return (
     <div className="h-screen flex bg-[#0f0f0f] overflow-hidden">

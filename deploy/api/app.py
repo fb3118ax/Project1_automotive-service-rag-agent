@@ -8,9 +8,10 @@ from agent.graph import app as agent_app
 from langchain_core.messages import HumanMessage, AIMessage
 from azure.cosmos import CosmosClient, exceptions, PartitionKey
 from datetime import datetime, timezone
-import os
+from config.settings import (DEMO_CREDENTIALS, MAX_LOGIN_ATTEMPTS, LOCKOUT_SECONDS, FAQ_SLOTS, FAQ_MIN_COUNT, COSMOS_CONNECTION_STRING, COSMOS_DATABASE, SESSIONS_CONTAINER, QUERYLOG_CONTAINER, SESSION_TTL_SECONDS, QUERYLOG_TTL_SECONDS)
 import re
 import uuid
+import time
 
 # ── Rate Limiter ───────────────────────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address)
@@ -27,14 +28,14 @@ api.add_middleware(
 )
 
 # ── Cosmos DB (lazy init) ──────────────────────────────────────────────────
-COSMOS_CONNECTION_STRING = os.getenv("COSMOS_CONNECTION_STRING")
-COSMOS_DATABASE          = "mechai-db"
+COSMOS_CONNECTION_STRING = COSMOS_CONNECTION_STRING
+COSMOS_DATABASE          = COSMOS_DATABASE
 
-SESSIONS_CONTAINER  = "sessions"
-QUERYLOG_CONTAINER  = "query_log"
+SESSIONS_CONTAINER  = SESSIONS_CONTAINER
+QUERYLOG_CONTAINER  = QUERYLOG_CONTAINER
 
-SESSION_TTL_SECONDS   = 1296000  # 15 days
-QUERYLOG_TTL_SECONDS  = 1296000  # 15 days
+SESSION_TTL_SECONDS   = SESSION_TTL_SECONDS
+QUERYLOG_TTL_SECONDS  = QUERYLOG_TTL_SECONDS  # 15 days
 
 _cosmos_db = None
 _containers = {}
@@ -186,6 +187,47 @@ def log_query(user_id: str, session_id: str, user_type: str, query_text: str) ->
         print(f"[log_query] Cosmos write failed for user {user_id}: {e}")
 
 
+# ── Demo login (UI-gate only, not real auth) ──────────────────────────────────
+_login_attempts: dict[str, dict] = {}  # username -> {"count": int, "locked_until": float}
+
+
+class LoginRequest(BaseModel):
+    user_type: str
+    username: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    success: bool
+    token: str | None = None
+    message: str
+
+
+@api.post("/auth/login", response_model=LoginResponse)
+async def login(body: LoginRequest):
+    now = time.time()
+    record = _login_attempts.get(body.username, {"count": 0, "locked_until": 0})
+
+    if record["locked_until"] > now:
+        remaining = int(record["locked_until"] - now)
+        return LoginResponse(success=False, message=f"Account locked. Try again in {remaining}s.")
+
+    creds = DEMO_CREDENTIALS.get(body.user_type)
+    if not creds or body.username != creds["username"] or body.password != creds["password"]:
+        record["count"] += 1
+        if record["count"] >= MAX_LOGIN_ATTEMPTS:
+            record["locked_until"] = now + LOCKOUT_SECONDS
+            record["count"] = 0
+            _login_attempts[body.username] = record
+            return LoginResponse(success=False, message="Too many failed attempts. Locked for 2 minutes.")
+        _login_attempts[body.username] = record
+        return LoginResponse(success=False, message=f"Invalid credentials. {MAX_LOGIN_ATTEMPTS - record['count']} attempt(s) left.")
+
+    _login_attempts.pop(body.username, None)
+    token = str(uuid.uuid4())
+    return LoginResponse(success=True, token=token, message="Login successful")
+
+
 # ── Request / Response models ─────────────────────────────────────────────────
 class QueryRequest(BaseModel):
     query: str
@@ -286,7 +328,8 @@ async def list_sessions(user_id: str, user_type: str):
             query=query_text,
             parameters=[
                 {"name": "@user_id", "value": user_id},
-                {"name": "@user_type", "value": user_type},],
+                {"name": "@user_type", "value": user_type},
+            ],
             enable_cross_partition_query=True,
         ))[:20]
 
@@ -329,8 +372,8 @@ async def get_session_history(session_id: str, user_id: str, user_type: str):
 
 
 # ── FAQ endpoint ───────────────────────────────────────────────────────────────
-FAQ_MIN_COUNT = 3
-FAQ_SLOTS = 5
+FAQ_MIN_COUNT = FAQ_MIN_COUNT
+FAQ_SLOTS = FAQ_SLOTS
 
 
 @api.get("/faq", response_model=list[FaqItem])

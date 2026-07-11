@@ -64,12 +64,6 @@ DATA_FOLDER = os.getenv("DATA_FOLDER", "./data")
 CHUNK_SIZE = 2000
 CHUNK_OVERLAP = 200
 
-# ── EXTRACTED_IMAGES ───────────────────────────────────────────────────────────────────
-EXTRACTED_IMAGES = "processed_images.pkl"
-
-# ── EXTRACTED_IMAGES_DESCRIPTION_COLLECTION ──────────────────────────────────────────
-IMAGE_COLLECTION = os.getenv("IMAGE_COLLECTION", "image_chunks")
-
 # ── TOKEN_LIMIT ───────────────────────────────────────────────────────────────────
 TOKEN_LIMIT = 20000
 
@@ -86,9 +80,24 @@ OFF_TOPIC_KEYWORDS = [
     "weather", "recipe", "sports", "movie", "music", "bomb"
 ]
 
-# ── IMAGE DISPLAY ──────────────────────────────────────────────────────────────────────
-IMAGE_REQUEST_KEYWORDS = [
-    "show", "image", "picture", "diagram", "look like", "photo", "visual", "illustrate"
-]
-IMAGE_CANDIDATE_K = 4   # raw-query candidates pulled per query variation, BEFORE rerank
-IMAGE_MAX_RESULTS = 5   # upper bound on images shown, AFTER rerank — was a hardcoded
+# ── Demo login credentials (UI-gate only, not real auth) ──────────────────
+DEMO_CREDENTIALS = {
+    "owner": {"username": "owner_demo", "password": "owner123"},
+    "technician": {"username": "tech_demo", "password": "tech123"},
+}
+
+MAX_LOGIN_ATTEMPTS = 3
+LOCKOUT_SECONDS = 60  # 2.5 min
+
+# ── Cosmos DB (lazy init) ──────────────────────────────────────────────────
+COSMOS_CONNECTION_STRING = os.getenv("COSMOS_CONNECTION_STRING")
+COSMOS_DATABASE          = "mechai-db"
+
+SESSIONS_CONTAINER  = "sessions"
+QUERYLOG_CONTAINER  = "query_log"
+
+SESSION_TTL_SECONDS   = 1296000  # 15 days
+QUERYLOG_TTL_SECONDS  = 1296000  # 15 days
+
+FAQ_MIN_COUNT = 3
+FAQ_SLOTS = 5
