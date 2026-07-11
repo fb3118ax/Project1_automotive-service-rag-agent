@@ -45,6 +45,10 @@ export default function App() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
 
+  useEffect(() => {
+    setAuthToken(null)
+  }, [userType])
+
   if (!userType) {
     return <ModeSelect onSelect={selectMode} />
   }
