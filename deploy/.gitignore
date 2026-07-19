@@ -8,3 +8,5 @@ __pycache__/
 mechai_cache_db/
 scripts/pipeline_debug.py
 scripts/debug_retrieval.py
+project_coding.ipynb
+RAGAS-score.png

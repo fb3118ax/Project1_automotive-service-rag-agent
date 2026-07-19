@@ -41,6 +41,77 @@ def clean_text(text, printed_page=None):
     return text.strip()
 
 
+HEADING_NUM_RE = re.compile(r'^(?P<num>\d+(?:\.\d+)*)\s+(?P<title>[^\d].+)$')
+
+
+def is_heading_line(line: str) -> bool:
+    if not line or len(line) < 4:
+        return False
+    if HEADING_NUM_RE.match(line):
+        return True
+    if line.isupper() and len(line.split()) <= 10 and len(line) >= 15:
+        return True
+    if line.istitle() and len(line.split()) <= 8 and len(line) >= 15:
+        return True
+    return False
+
+
+def split_page_sections(text: str, printed_page: int, source_file: str) -> list[Document]:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    page_docs = []
+    current_section = None
+    current_subsection = None
+    block_lines = []
+
+    def flush_block():
+        if not block_lines:
+            return
+        section_meta = current_section or f"Page {printed_page}"
+        page_docs.append(Document(
+            page_content="\n".join(block_lines).strip(),
+            metadata={
+                "page_number": printed_page,
+                "chunk_type": "text",
+                "source_file": source_file,
+                "section": section_meta,
+                "subsection": current_subsection,
+            }
+        ))
+
+    for line in lines:
+        if is_heading_line(line):
+            if block_lines:
+                flush_block()
+                block_lines = []
+            match = HEADING_NUM_RE.match(line)
+            if match:
+                num = match.group("num")
+                title = match.group("title").strip()
+                if '.' in num:
+                    if current_section is None:
+                        current_section = title
+                    current_subsection = f"{num} {title}"
+                else:
+                    current_section = title
+                    current_subsection = None
+            else:
+                if current_section is None:
+                    current_section = line
+                    current_subsection = None
+                elif current_subsection is None:
+                    current_subsection = line
+                else:
+                    current_section = line
+                    current_subsection = None
+            continue
+        block_lines.append(line)
+
+    if block_lines:
+        flush_block()
+
+    return page_docs
+
+
 def loader_doc():
     text_doc = []
 
@@ -59,12 +130,6 @@ def loader_doc():
                 # ── Text extraction ──
                 texts = clean_text(page.get_text(), printed_page=printed_page)
                 if texts:
-                    text_doc.append(Document(
-                        page_content=texts,
-                        metadata={
-                            "page_number": printed_page,
-                            "chunk_type": "text",
-                            "source_file": file
-                        }))
+                    text_doc.extend(split_page_sections(texts, printed_page, file))
 
     return text_doc
