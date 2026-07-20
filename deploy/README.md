@@ -2,9 +2,25 @@
 
 A production-grade RAG agent for BMW service manual Q&A. Built with LangGraph, FastAPI, and a React frontend. Supports dual user modes (Owner and Technician), multi-turn conversation, confidence scoring, and guardrails.
 
-**Live Demo:** [https://project1-automotive-service-rag-age.vercel.app](https://project1-automotive-service-rag-age.vercel.app)
+**GitHub Repository:** [MechAI — Automotive Service Intelligence](https://github.com/fb3118ax/MechAI-Automotive_Service_Intelligence/tree/main_text_migration)
 
-**Backend API:** [https://mechai-backend.delightfulsea-af823488.centralindia.azurecontainerapps.io](https://mechai-backend.delightfulsea-af823488.centralindia.azurecontainerapps.io)
+**Live Traces:** [Tracing - LangSmith](https://smith.langchain.com/o/81be5b06-c2af-4e7b-a213-ccb9dc26fc4b/projects)
+
+![LangSmith trace showing RAGAS feedback scores](langsmith/RAGAS-score.png)
+
+**Live Demo:** [mech-ai-automotive-service-intelligence - Overview – Vercel](https://project1-automotive-service-rag-age.vercel.app)
+
+## Demo Credentials & Usage Limits
+
+### Login Credentials
+| Role | Username | Password |
+| :--- | :--- | :--- |
+| **Owner Mode** | `owner` | `owner123` |
+| **Technician Mode** | `technician` | `tech123` |
+
+### Security & Rate Limits
+* **Account Lockout:** After **3 failed login attempts**, the account will be locked for **2 minutes** and unlocks automatically afterward.
+* **Rate Limit:** Users can fire a maximum of **5 queries per minute**.
 
 ---
 
@@ -117,7 +133,7 @@ User Query
 
 ## RAGAS Evaluation
 
-Pipeline quality evaluated using [RAGAS](https://docs.ragas.io/) on a synthetic test set generated from BMW manual chunks.
+Pipeline quality evaluated using RAGAS on a synthetic test set generated from manual chunks.
 
 | Metric             | Score  |
 |--------------------|--------|
@@ -134,7 +150,7 @@ Scores are posted as feedback to LangSmith traces via `scripts/evaluate.py`.
 
 Every pipeline run is traced in LangSmith with per-run RAGAS feedback scores attached.
 
-![LangSmith trace showing RAGAS feedback scores](docs/langsmith_trace.png)
+![LangSmith trace showing RAGAS feedback scores](langsmith/RAGAS-score.png)
 
 ---
 
@@ -191,7 +207,7 @@ deploy/
 | LLM | GPT-4o |
 | Embeddings | text-embedding-3-small |
 | Vector Store | ChromaDB |
-| PDF Parsing | pdfplumber |
+| PDF Parsing | PyMuPDF |
 | API | FastAPI + slowapi |
 | Observability | LangSmith |
 | Evaluation | RAGAS |
@@ -199,7 +215,7 @@ deploy/
 | Backend Deployment | Azure Container Apps (Central India) |
 | Frontend | React + Vite + Tailwind + react-markdown |
 | Frontend Deployment | Vercel |
-| Session Storage | Azure Cosmos DB (free tier, Central India) |
+| Session Storage | Azure Cosmos DB (Central India) |
 | Container Registry | Azure Container Registry |
 
 ---

@@ -10,5 +10,5 @@ scripts/pipeline_debug.py
 scripts/debug_retrieval.py
 project_coding.ipynb
 RAGAS-score.png
-deploy/scripts/test_chunk.py
+scripts/test_chunk.py
 BMW_RAG_db/
