@@ -8,16 +8,47 @@ A production-grade RAG agent for BMW service manual Q&A. Built with LangGraph, F
 
 ---
 
+## Why This Project
+
+The idea started from a simple frustration with owning a "brand" car:
+
+- Luxury/brand vehicles run on proprietary parts and systems that a generic mechanic — or a generic LLM — can't reliably speak to.
+- Specialized diagnostics and brand-trained labor cost significantly more, and owners rarely know what's actually needed vs. upsold.
+- Out-of-warranty issues can be very costly, so getting an accurate, manual-grounded answer *before* a service visit has real value.
+- Service manuals themselves are hundreds of pages of dense technical text — hard for an owner to search, and slow even for a technician to cross-reference.
+- A general-purpose AI assistant will happily answer car questions from generic internet knowledge — which is exactly the wrong behavior for something tied to a specific vehicle's actual systems.
+- This pushed the core design goal: an assistant that answers **only** from the vehicle's own manual, cites the page, and says so when it doesn't know — for both owners (plain language) and technicians (full technical detail).
+
+---
+
+## Key Design Decisions
+
+**Semantic cache before classification** — a ChromaDB-backed cache check runs right after the input guardrail; hits skip the entire classify/retrieve/generate pipeline and return in a fraction of the time.
+
+**Parallel classifier + query expansion path** — the graph is structured so intent classification and downstream expansion don't block on unrelated work, keeping latency low.
+
+**Token-aware history trimming** — tiktoken counts tokens before each LLM call; oldest message pairs are dropped when approaching the 20,000 token limit, keeping costs predictable on the free tier.
+
+**Session separation by user type** — session key is `session_id_user_type`, so Owner and Technician histories never bleed into each other.
+
+**Distance-based confidence scoring** — ChromaDB cosine distance is converted to a 0–1 confidence score. Answers below the 0.7 threshold include a verification warning.
+
+**Azure Cosmos DB session storage** — conversation history persists across redeploys and restarts, stored as serialized LangChain messages in Cosmos DB free tier.
+
+**Rate limiting** — slowapi limits incoming API requests to 5 per minute per IP to prevent abuse and protect OpenAI credit usage.
+
+---
+
 ## Capabilities
 
-- Ingest 460-page BMW service manual (text) into ChromaDB
+- Ingest a 460-page BMW service manual into ChromaDB
 - Dual user modes — Owner (plain language) and Technician (full technical detail)
 - Multi-turn conversation with token-aware history trimming
-- Parallel query classification and query expansion
+- Parallel query classification and expansion
+- Semantic caching layer — checked before classification to skip the full pipeline on repeated/similar queries
 - Confidence scoring via ChromaDB cosine distance
 - Page-level citations on every answer
 - Input and output guardrails (prompt injection, profanity, greetings, off-topic)
-- Semantic response caching for repeated/similar queries
 - RAGAS-evaluated pipeline with LangSmith tracing
 - Rate limited API (5 requests/minute per IP)
 
@@ -28,16 +59,17 @@ A production-grade RAG agent for BMW service manual Q&A. Built with LangGraph, F
 ```text
 User Query
   → Input Guardrail           (injection detection, profanity, greeting handler)
-  → Semantic Cache Check      (cosine similarity > 0.95 → early return)
-  → Classifier + Query Expansion (parallel)
-      Classifier              (intent: text / unknown)
-      Query Expansion         (query variations via GPT-4o)
+  → Semantic Cache Check      (ChromaDB-backed; hit → return cached response, skip pipeline)
+  → Classifier                (intent: text / unknown)
+  → Query Expansion           (query variations via GPT-4o)
   → Text Retriever            (ChromaDB cosine similarity, k=5, deduped)
   → Confidence Scoring        (distance-based threshold: 0.7)
   → Conversation              (GPT-4o, token-aware history, page citations)
   → Output Guardrail          (safety check on generated answer)
   → Response
 
+  input_guardrail (blocked)  → END
+  check_cache (hit)          → END
   classifier (unknown intent) → Unknown Handler → END
 ```
 
@@ -56,21 +88,24 @@ User Query
 │            (Docker, Azure Container Apps)            │
 │                                                      │
 │  ┌─────────────────────────────────────────────┐    │
-│  │         LangGraph Agent                      │    │
+│  │           LangGraph Agent                    │    │
 │  │                                              │    │
 │  │  input_guardrail                             │    │
-│  │       → check_cache                          │    │
-│  │       └── classifier       ──┐               │    │
-│  │       └── query_expansion ──► text_retriever │    │
-│  │                              → confidence    │    │
-│  │                              → conversation  │    │
-│  │                              → output_guardrail   │    │
-│  │       └── unknown_handler → END              │    │
+│  │       ├── blocked_input → END                │    │
+│  │       └── check_cache                        │    │
+│  │              ├── cache_hit → END              │    │
+│  │              └── classifier                   │    │
+│  │                     ├── unknown_handler → END │    │
+│  │                     └── query_expansion       │    │
+│  │                            → text_retriever   │    │
+│  │                            → confidence        │    │
+│  │                            → conversation      │    │
+│  │                            → output_guardrail  │    │
 │  └─────────────────────────────────────────────┘    │
 │                                                      │
 │  ┌──────────────┐  ┌─────────────┐  ┌───────────┐  │
 │  │  ChromaDB    │  │ Cosmos DB   │  │ ChromaDB  │  │
-│  │ (BMW_RAG_db) │  │ (sessions)  │  │ (cache)   │  │
+│  │ (BMW_RAG_db) │  │ (sessions)  │  │(sem.cache)│  │
 │  └──────────────┘  └─────────────┘  └───────────┘  │
 │                                                      │
 │  ┌────────────┐                                      │
@@ -86,12 +121,12 @@ User Query
 
 Pipeline quality evaluated using [RAGAS](https://docs.ragas.io/) on a synthetic test set generated from BMW manual chunks.
 
-| Metric             | Score |
-|--------------------|-------|
-| Faithfulness       | 0.82  |
-| Answer Relevancy   | 0.92  |
-| Context Precision  | 0.81  |
-| Context Recall     | 1.00  |
+| Metric             | Score  |
+|--------------------|--------|
+| Faithfulness       | 0.9083 |
+| Answer Relevancy   | 0.8773 |
+| Context Precision  | 1.0000 |
+| Context Recall     | 1.0000 |
 
 Scores are posted as feedback to LangSmith traces via `scripts/evaluate.py`.
 
@@ -116,7 +151,7 @@ deploy/
     classifier.py           — Intent classification (text / unknown)
     query_expansion.py      — GPT-4o query variation generation
     retrievers.py           — ChromaDB text retriever
-    semantic_cache.py       — ChromaDB-backed semantic response cache
+    semantic_cache.py       — Cache check before classification
     confidence_score.py     — Distance-based confidence scoring
     conversation.py         — GPT-4o response generation with token-aware history
     input_guardrail.py      — Input safety checks + greeting handler
@@ -131,40 +166,22 @@ deploy/
       hooks/useChat.js      — Session management, message state
       components/
         ModeSelect.jsx      — Owner / Technician mode selection screen
-        Sidebar.jsx         — Mode label, recent conversations, FAQ, new conversation button
-        MessageBubble.jsx   — Chat bubbles, confidence badge, citations
-        InputBar.jsx        — Textarea, 500 char counter, send button
-      App.jsx               — Layout, typing indicator, cold start warning
+        Sidebar.jsx          — Mode label, new conversation button
+        MessageBubble.jsx    — Chat bubbles, confidence badge, citations
+        InputBar.jsx         — Textarea, 500 char counter, send button
+      App.jsx                — Layout, typing indicator, cold start warning
   scripts/
-    loader.py               — PDF text extraction via PyMuPDF
-    chunker.py               — Text chunking (2000 chars, 200 overlap)
-    vector_store.py         — ChromaDB collection builder
-    ingest.py               — Full ingestion pipeline runner
-    generate_testset.py     — Synthetic Q&A pair generation for RAGAS
-    evaluate.py             — RAGAS evaluation + LangSmith feedback posting
-    testset.json            — Generated Q&A pairs from BMW manual
-    ragas_results.json      — Final RAGAS scores
+    loader.py                — PDF ingestion via pdfplumber
+    chunker.py                — Text chunking with two-pass small-chunk merge
+    vector_store.py           — ChromaDB collection builder
+    ingest.py                 — Full ingestion pipeline runner
+    generate_testset.py       — Synthetic Q&A pair generation for RAGAS
+    evaluate.py                — RAGAS evaluation + LangSmith feedback posting
+    testset.json                — 10 generated Q&A pairs from BMW manual
+    ragas_results.json          — Final RAGAS scores
   Dockerfile
   requirements.txt
 ```
-
----
-
-## Key Design Decisions
-
-**Parallel classifier + query expansion** — both nodes run simultaneously after the semantic cache check, cutting latency significantly on cache misses.
-
-**Semantic response caching** — repeated or near-duplicate queries (cosine similarity > 0.95) return a cached response immediately, skipping the full pipeline.
-
-**Token-aware history trimming** — tiktoken counts tokens before each LLM call; oldest message pairs are dropped when approaching the token limit, keeping costs predictable on the free tier.
-
-**Session separation by user type** — session key is `session_id_user_type`, so Owner and Technician histories never bleed into each other.
-
-**Distance-based confidence scoring** — ChromaDB cosine distance is converted to a 0–1 confidence score. Answers below the 0.7 threshold include a verification warning.
-
-**Azure Cosmos DB session storage** — conversation history persists across redeploys and restarts, stored as serialized LangChain messages in Cosmos DB free tier.
-
-**Rate limiting** — slowapi limits incoming API requests to 5 per minute per IP to prevent abuse and protect OpenAI credit usage.
 
 ---
 
@@ -176,7 +193,7 @@ deploy/
 | LLM | GPT-4o |
 | Embeddings | text-embedding-3-small |
 | Vector Store | ChromaDB |
-| PDF Parsing | PyMuPDF |
+| PDF Parsing | pdfplumber |
 | API | FastAPI + slowapi |
 | Observability | LangSmith |
 | Evaluation | RAGAS |
