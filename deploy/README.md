@@ -1,6 +1,6 @@
 # MechAI — Automotive Service Intelligence
 
-A production-grade RAG agent for BMW service manual Q&A. Built with LangGraph, FastAPI, and a React frontend. Supports dual user modes (Owner and Technician), multi-turn conversation, confidence scoring, and guardrails.
+A POC RAG agent for vahical service manual Q&A. Built with LangGraph, FastAPI, and a React frontend. Supports dual user modes (Owner and Technician), multi-turn conversation, confidence scoring, and guardrails.
 
 **GitHub Repository:** [MechAI — Automotive Service Intelligence](https://github.com/fb3118ax/MechAI-Automotive_Service_Intelligence/tree/main_text_migration)
 
