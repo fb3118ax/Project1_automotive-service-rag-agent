@@ -6,8 +6,6 @@ A production-grade RAG agent for BMW service manual Q&A. Built with LangGraph, F
 
 **Live Traces:** [Tracing - LangSmith](https://smith.langchain.com/o/81be5b06-c2af-4e7b-a213-ccb9dc26fc4b/projects)
 
-![LangSmith trace showing RAGAS feedback scores](langsmith/RAGAS-score.png)
-
 **Live Demo:** [mech-ai-automotive-service-intelligence - Overview – Vercel](https://project1-automotive-service-rag-age.vercel.app)
 
 ## Demo Credentials & Usage Limits
