@@ -10,14 +10,12 @@ A production-grade RAG agent for BMW service manual Q&A. Built with LangGraph, F
 
 ## Why This Project
 
-The idea started from a simple frustration with owning a "brand" car:
+This project was built following an exploration into the real-world costs and technical complexities of brand car ownership:
 
-- Luxury/brand vehicles run on proprietary parts and systems that a generic mechanic — or a generic LLM — can't reliably speak to.
-- Specialized diagnostics and brand-trained labor cost significantly more, and owners rarely know what's actually needed vs. upsold.
-- Out-of-warranty issues can be very costly, so getting an accurate, manual-grounded answer *before* a service visit has real value.
-- Service manuals themselves are hundreds of pages of dense technical text — hard for an owner to search, and slow even for a technician to cross-reference.
-- A general-purpose AI assistant will happily answer car questions from generic internet knowledge — which is exactly the wrong behavior for something tied to a specific vehicle's actual systems.
-- This pushed the core design goal: an assistant that answers **only** from the vehicle's own manual, cites the page, and says so when it doesn't know — for both owners (plain language) and technicians (full technical detail).
+- **High Maintenance Costs:** Premium vehicles carry high ownership expenses, driven by steep labor rates ($200–$300/hour), proprietary replacement parts, and steep out-of-warranty repairs.
+- **Proprietary & Complex Systems:** Brand-specific vehicles rely on unique components, advanced electronics, and closed diagnostics that generic mechanics or standard aftermarket parts cannot reliably service.
+- **Information Density:** Official service manuals consist of hundreds of pages of dense technical data, making quick troubleshooting time-consuming for owners and technicians alike.
+- **Limitations of Generic AI:** General-purpose AI models pull from broad internet knowledge, which lacks the precise, model-specific accuracy required for complex automotive systems.
 
 ---
 
