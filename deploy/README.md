@@ -53,7 +53,7 @@ This project was built following an exploration into the real-world costs and te
 
 ## Capabilities
 
-- Ingest a 460-page BMW service manual into ChromaDB
+- Ingest a 460-page sample service manual into ChromaDB
 - Dual user modes — Owner (plain language) and Technician (full technical detail)
 - Multi-turn conversation with token-aware history trimming
 - Parallel query classification and expansion
