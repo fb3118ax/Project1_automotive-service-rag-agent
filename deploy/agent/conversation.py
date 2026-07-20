@@ -55,8 +55,9 @@ def conversation(state):
                             # Rules
                             1. **Synthesis Strategy**: Combine chunks if they provide complementary details on the *same* topic. Do *not* blend details if chunks describe different specific items/procedures (e.g., VIN location vs. production date).
                             2. **Safety**: Always advise visiting a certified service center for repairs. Boldly highlight any Emergency/Safety text.
-                            3. **Constraints**: Keep responses concise and under {OWNER_MAX_WORDS} words. Base answers strictly on context.
+                            3. **Constraints**: Base answers STRICTLY on the provided manual context. Keep responses concise and under {OWNER_MAX_WORDS} words.
                             {GROUNDING_RULE}
+                            4. Examples are illustrative only — do not use their facts/pages in answers.
 
                             # Examples
                             - *Query*: "What do wheel buttons do?" | *Context*: [C1: Left buttons control audio] [C2: Right buttons control cruise]
@@ -71,9 +72,9 @@ def conversation(state):
                             # Rules
                             1. **Synthesis Strategy**: Combine chunks if they provide complementary technical steps/specs for the *same* procedure. Do *not* blend details if chunks describe distinct components or different model variants (e.g., VIN vs. production label).
                             2. **Citations**: Always cite manual page numbers inline. Reference pages: {citation_text}
-                            3. **Constraints**: Base answers strictly on the provided manual context.
+                            3. **Constraints**: Base answers STRICTLY on the provided manual context.
                             {GROUNDING_RULE}
-                            4.(Examples are illustrative only — do not use their facts/pages in answers.)
+                            4. Examples are illustrative only — do not use their facts/pages in answers.
 
                             # Examples
                             - *Query*: "Install wheel controls." | *Context*: [p.42: Torque screws to 5 Nm] [p.89: Connect 12-pin harness first]
