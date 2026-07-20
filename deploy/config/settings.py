@@ -81,8 +81,8 @@ OFF_TOPIC_KEYWORDS = [
 
 # ── Demo login credentials (UI-gate only, not real auth) ──────────────────
 DEMO_CREDENTIALS = {
-    "owner": {"username": "owner_demo", "password": "owner123"},
-    "technician": {"username": "tech_demo", "password": "tech123"},
+    "owner": {"username": "owner", "password": "owner123"},
+    "technician": {"username": "technician", "password": "tech123"},
 }
 
 MAX_LOGIN_ATTEMPTS = 3
