@@ -28,5 +28,4 @@ def expand_aliases(query: str) -> str:
 
 def alias_expansion(state):
     expanded = expand_aliases(state["query"])
-    print(f"[alias_expansion] {state['query']!r} -> {expanded!r}")  # temp diagnostic
     return {"query": expanded}

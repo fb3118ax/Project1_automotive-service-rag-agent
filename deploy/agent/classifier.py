@@ -51,7 +51,7 @@ def classifier(state):
 )
 
     raw = response.choices[0].message.content
-    print(f"[classifier] raw output for {state['query']!r}: {raw!r}")
+    
     intent = response.choices[0].message.content.strip().lower()
     if "unknown" in intent:
         intent = "unknown"

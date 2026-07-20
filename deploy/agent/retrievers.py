@@ -42,8 +42,8 @@ def text_retriever(state):
     all_queries = [state["query"]] + state["query_variations"]
 
     for query in all_queries:
-        results = text_store.similarity_search_with_score(query, k=RETRIEVAL_K)
         
+        results = text_store.similarity_search_with_score(query, k=RETRIEVAL_K)
         for doc, score in results:
             content = doc.page_content
             if len(content.strip()) < MIN_CHUNK_CHARS:
@@ -68,6 +68,7 @@ def text_retriever(state):
             rerank_scores = _cross_encoder.predict(pairs)
             for c, s in zip(candidates, rerank_scores):
                 c["rerank_score"] = float(s)
+
             # higher rerank_score = more relevant -> sort descending
             candidates.sort(key=lambda c: c.get("rerank_score", -float("inf")), reverse=True)
             # Cross-encoder logits are unbounded (seen range roughly -10..+11

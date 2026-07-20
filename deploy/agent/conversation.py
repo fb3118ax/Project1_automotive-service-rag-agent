@@ -42,32 +42,46 @@ def conversation(state):
 
     citation_text = "\n".join([f"- Page {c['page']}" for c in state["citations"]])
 
-    GROUNDING_RULE = """-If the manual context above does not contain the information needed to answer the question,
-                    tell the user plainly that this specific information isn't covered in the vehicle's service manual.
+    GROUNDING_RULE = """IMPORTANT -If the manual context above does not contain the information needed to answer the question,
+                    tell the user plainly that like 'this specific information isn't covered in the vehicle's service manual'.
                     Never say "the context you provided" or imply the user supplied the manual excerpts — the manual
                     content comes from the system, not the user. Stop there — do not offer a general approach,
                     a best guess, or steps drawn from outside the provided context, even if it seems helpful."""
 
     if user_type == "owner":
-        system_prompt = f"""You are a vehicle service manual assistant helping a car owner.
-                        -Use simple, non-technical language. Avoid jargon.
-                        -Always recommend visiting a certified service center for repairs.
-                        -Multiple chunks in the context may cover closely related topics (e.g. VIN location vs. production date location) — answer only the specific question asked 
-                        and do not blend details from a different but similar topic.
-                        -Base your answer only on the provided manual context.
-                        {GROUNDING_RULE}
-                        -If any Emergency or Safety information is present in the context, highlight it clearly in your response.
-                        -Keep the response concise and under {OWNER_MAX_WORDS} words."""
-    else:
-        system_prompt = f"""You are a vehicle service manual assistant helping a certified technician.
-                        -Use precise technical language. Include specifications, torque values, and part references where available.
-                        -Always cite the page number from the manual context in your response.
-                        -Multiple chunks in the context may cover closely related topics (e.g. VIN location vs. production date location) — answer only the specific question asked 
-                        and do not blend details from a different but similar topic.
-                        -Base your answer only on the provided manual context.
-                        {GROUNDING_RULE}
-                        -Reference these manual pages: {citation_text}"""
+        system_prompt = f"""# Role -
+                            You are a manual assistant for car owners. Use simple, non-technical language. Avoid jargon.
 
+                            # Rules
+                            1. **Synthesis Strategy**: Combine chunks if they provide complementary details on the *same* topic. Do *not* blend details if chunks describe different specific items/procedures (e.g., VIN location vs. production date).
+                            2. **Safety**: Always advise visiting a certified service center for repairs. Boldly highlight any Emergency/Safety text.
+                            3. **Constraints**: Keep responses concise and under {OWNER_MAX_WORDS} words. Base answers strictly on context.
+                            {GROUNDING_RULE}
+
+                            # Examples
+                            - *Query*: "What do wheel buttons do?" | *Context*: [C1: Left buttons control audio] [C2: Right buttons control cruise]
+                            *Output*: The left buttons control your audio volume, and the right buttons manage your cruise control. For repairs, visit a certified service center.
+                            - *Query*: "Where is my VIN?" | *Context*: [C1: VIN is on the windshield] [C2: Production date is on the door]
+                            *Output*: Your VIN is located on the lower corner of the driver's side windshield.
+                            - Note : Examples are illustrative only — do not use their facts/pages in answers."""
+    else:
+        system_prompt = f"""# Role -
+                            You are a manual assistant for certified technicians. Use precise technical language (specs, torque, parts).
+
+                            # Rules
+                            1. **Synthesis Strategy**: Combine chunks if they provide complementary technical steps/specs for the *same* procedure. Do *not* blend details if chunks describe distinct components or different model variants (e.g., VIN vs. production label).
+                            2. **Citations**: Always cite manual page numbers inline. Reference pages: {citation_text}
+                            3. **Constraints**: Base answers strictly on the provided manual context.
+                            {GROUNDING_RULE}
+                            4.(Examples are illustrative only — do not use their facts/pages in answers.)
+
+                            # Examples
+                            - *Query*: "Install wheel controls." | *Context*: [p.42: Torque screws to 5 Nm] [p.89: Connect 12-pin harness first]
+                            *Output*: Connect the 12-pin wiring harness before seating the unit (p. 89), then tighten the base screws to 5 Nm (p. 42).
+                            - *Query*: "Where is VIN plate?" | *Context*: [p.12: VIN is on A-pillar] [p.15: Production label is on B-pillar]
+                            *Output*: The VIN plate is riveted to the driver-side A-pillar structure (p. 12).
+                            - Note : Examples are illustrative only — do not use their facts/pages in answers."""
+        
     history_text = " ".join([m.content for m in state["conversation_history"]])
     total_tokens = count_tokens(system_prompt + history_text + context + state["query"])
     history = state["conversation_history"]

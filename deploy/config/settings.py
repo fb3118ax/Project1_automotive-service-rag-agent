@@ -8,7 +8,7 @@ load_dotenv()
 # numbered-callout legends visually. Override via the PDF_PATH env var.
 PDF_PATH = os.getenv(
     "PDF_PATH",
-    "C:/Users/Pranali Jadhav/OneDrive/Documents/GEN_AI/my_study/Bot_Project_1/graphprod_text/bmw_manual.pdf",
+    "C:/Users/Pranali Jadhav/OneDrive/Documents/GEN_AI/my_study/Bot_Project_1/bmw_manual.pdf",
 )
 
 # ── API ────────────────────────────────────────────────────────────────────────
