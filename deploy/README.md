@@ -1,6 +1,6 @@
 # MechAI — Automotive Service Intelligence
 
-A production-grade RAG agent for BMW service manual Q&A. Built with LangGraph, FastAPI, and a React frontend. Supports dual user modes (Owner and Technician), multi-turn conversation, confidence scoring, and guardrails.
+A POC RAG agent for vehicle service manual Q&A. Built with LangGraph, FastAPI, and a React frontend. Supports dual user modes (Owner and Technician), multi-turn conversation, confidence scoring, and guardrails.
 
 **GitHub Repository:** [MechAI — Automotive Service Intelligence](https://github.com/fb3118ax/MechAI-Automotive_Service_Intelligence/tree/main_text_migration)
 
@@ -37,6 +37,8 @@ This project was built following an exploration into the real-world costs and te
 
 **Semantic cache before classification** — a ChromaDB-backed cache check runs right after the input guardrail; hits skip the entire classify/retrieve/generate pipeline and return in a fraction of the time.
 
+**Alias expansion before classification** — short/acronym queries (e.g. "sos", "dsc", "abs") are expanded against a domain-anchored alias map before the classifier runs, so they route correctly instead of falling into `unknown_handler`.
+
 **Parallel classifier + query expansion path** — the graph is structured so intent classification and downstream expansion don't block on unrelated work, keeping latency low.
 
 **Token-aware history trimming** — tiktoken counts tokens before each LLM call; oldest message pairs are dropped when approaching the 20,000 token limit, keeping costs predictable on the free tier.
@@ -53,9 +55,10 @@ This project was built following an exploration into the real-world costs and te
 
 ## Capabilities
 
-- Ingest a 460-page BMW service manual into ChromaDB
+- Ingest a 460-page sample service manual into ChromaDB
 - Dual user modes — Owner (plain language) and Technician (full technical detail)
 - Multi-turn conversation with token-aware history trimming
+- Alias expansion for short/acronym queries ahead of classification
 - Parallel query classification and expansion
 - Semantic caching layer — checked before classification to skip the full pipeline on repeated/similar queries
 - Confidence scoring via ChromaDB cosine distance
@@ -72,6 +75,7 @@ This project was built following an exploration into the real-world costs and te
 User Query
   → Input Guardrail           (injection detection, profanity, greeting handler)
   → Semantic Cache Check      (ChromaDB-backed; hit → return cached response, skip pipeline)
+  → Alias Expansion           (domain-anchored acronym/alias resolution, e.g. "sos", "dsc", "abs")
   → Classifier                (intent: text / unknown)
   → Query Expansion           (query variations via GPT-4o)
   → Text Retriever            (ChromaDB cosine similarity, k=5, deduped)
@@ -106,13 +110,15 @@ User Query
 │  │       ├── blocked_input → END                │    │
 │  │       └── check_cache                        │    │
 │  │              ├── cache_hit → END              │    │
-│  │              └── classifier                   │    │
-│  │                     ├── unknown_handler → END │    │
-│  │                     └── query_expansion       │    │
-│  │                            → text_retriever   │    │
-│  │                            → confidence        │    │
-│  │                            → conversation      │    │
-│  │                            → output_guardrail  │    │
+│  │              └── alias_expansion               │    │
+│  │                     └── classifier             │    │
+│  │                            ├── unknown_handler │    │
+│  │                            │        → END      │    │
+│  │                            └── query_expansion  │    │
+│  │                                   → text_retriever│  │
+│  │                                   → confidence   │    │
+│  │                                   → conversation │    │
+│  │                                   → output_guardrail│ │
 │  └─────────────────────────────────────────────┘    │
 │                                                      │
 │  ┌──────────────┐  ┌─────────────┐  ┌───────────┐  │
@@ -160,6 +166,7 @@ deploy/
     app.py                  — FastAPI entry point, rate limiting, session management
   agent/
     graph.py                — LangGraph graph definition
+    alias_expansion.py      — Domain-anchored alias/acronym expansion, runs before classifier
     classifier.py           — Intent classification (text / unknown)
     query_expansion.py      — GPT-4o query variation generation
     retrievers.py           — ChromaDB text retriever
