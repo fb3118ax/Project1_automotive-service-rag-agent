@@ -18,6 +18,8 @@ LOW_CONFIDENCE_NOTE = {
     "technician": "\n\n⚠️ Note: This answer is based on limited matches from the manual. Cross-reference the cited pages directly before acting on it.",
 }
 
+UNGROUNDED_TAG = "[UNGROUNDED]"
+
 
 def conversation(state):
     user_type = state["user_type"]
@@ -25,11 +27,7 @@ def conversation(state):
     if not state["retrieved_chunks"]:
         return {
             "current_topic": state.get("current_topic", ""),
-            # FIX: return only the new message(s) — conversation_history uses
-            # operator.add as its reducer, so LangGraph appends this to the
-            # existing accumulated history automatically. Returning
-            # state["conversation_history"] + [...] here caused the entire
-            # prior history to be duplicated on every turn.
+            "grounded": False,
             "conversation_history": [
                 AIMessage(content=NO_MATCH_MESSAGE.get(user_type, NO_MATCH_MESSAGE["owner"]))
             ]
@@ -42,12 +40,13 @@ def conversation(state):
 
     citation_text = "\n".join([f"- Page {c['page']}" for c in state["citations"]])
 
-    GROUNDING_RULE = """IMPORTANT -If the manual context above does not contain the information needed to answer the question,
-                    tell the user plainly that like 'this specific information isn't covered in the vehicle's service manual'.
+    GROUNDING_RULE = f"""IMPORTANT -If the manual context above does not contain the information needed to answer the question,
+                    prefix your entire response with the exact token {UNGROUNDED_TAG} (nothing before it, one space after),
+                    then tell the user plainly that like 'this specific information isn't covered in the vehicle's service manual'.
                     Never say "the context you provided" or imply the user supplied the manual excerpts — the manual
                     content comes from the system, not the user. Stop there — do not offer a general approach,
                     a best guess, or steps drawn from outside the provided context, even if it seems helpful."""
-
+    
     if user_type == "owner":
         system_prompt = f"""# Role -
                             You are a manual assistant for car owners. Use simple, non-technical language. Avoid jargon.
@@ -103,15 +102,22 @@ def conversation(state):
 
     answer = response.choices[0].message.content.strip()
 
-    if state["confidence_score"] < CONFIDENCE_THRESHOLD:
+    grounded = not answer.startswith(UNGROUNDED_TAG)
+    if not grounded:
+        answer = answer[len(UNGROUNDED_TAG):].strip()
+
+    if grounded and state["confidence_score"] < CONFIDENCE_THRESHOLD:
         answer += LOW_CONFIDENCE_NOTE.get(user_type, LOW_CONFIDENCE_NOTE["owner"])
 
     new_topic = state["query"]
     return {
         "current_topic": new_topic,
-        # FIX: same as above — only the new turn's messages, not existing + new.
+        "grounded": grounded,
         "conversation_history": [
             HumanMessage(content=state["query"]),
-            AIMessage(content=answer)
+            AIMessage(content=answer, additional_kwargs={
+                "citations": state["citations"] if grounded else [],
+                "confidence_score": state["confidence_score"] if grounded else 0.0,
+            })
         ]
     }

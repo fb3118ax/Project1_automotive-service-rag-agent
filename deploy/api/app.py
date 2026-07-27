@@ -241,6 +241,7 @@ class QueryResponse(BaseModel):
     citations: list
     confidence_score: float
     guardrail_response: str
+    grounded: bool
 
 
 class SessionSummary(BaseModel):
@@ -279,6 +280,7 @@ async def query(request: Request, body: QueryRequest):
         "current_topic":        current_topic,
         "cache_hit":            False,
         "final_response":       "",
+        "grounded":             True,
     })
 
     # FIX: log_query moved here and gated on guardrail_status != "blocked_input".
@@ -308,9 +310,10 @@ async def query(request: Request, body: QueryRequest):
 
     return QueryResponse(
         answer=last_message,
-        citations=result["citations"],
-        confidence_score=result["confidence_score"],
+        citations=result["citations"] if result["grounded"] else [],
+        confidence_score=result["confidence_score"] if result["grounded"] else 0.0,
         guardrail_response=result["guardrail_response"],
+        grounded=result["grounded"],
     )
 
 

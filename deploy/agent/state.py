@@ -20,3 +20,4 @@ class AgentState(TypedDict):
     current_topic: str
     final_response: str       
     cache_hit: bool
+    grounded: bool
