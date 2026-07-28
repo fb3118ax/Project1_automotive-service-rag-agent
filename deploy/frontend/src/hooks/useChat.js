@@ -1,10 +1,12 @@
 import { useState, useCallback, useRef } from 'react'
-import { sendQuery, getSessionHistory } from '../api/client'
+import { sendQuery, getSessionHistory, sendFeedback } from '../api/client'
 import { getUserId } from '../lib/userId'
 
 function newSessionId() {
   return crypto.randomUUID()
 }
+
+const FEEDBACK_TRIGGER_COUNT = 5
 
 export function useChat() {
   const [messages, setMessages] = useState([])
@@ -12,14 +14,20 @@ export function useChat() {
   const [slowServer, setSlowServer] = useState(false)
   const [userType, setUserType] = useState(null)
   const [sessionVersion, setSessionVersion] = useState(0)
+  const [showFeedback, setShowFeedback] = useState(false)
   const sessionId = useRef(newSessionId())
   const userId = useRef(getUserId())
   const slowTimer = useRef(null)
+  const questionCount = useRef(0)
+  const feedbackShown = useRef(false)
 
   const selectMode = useCallback((mode) => {
     setUserType(mode)
     sessionId.current = newSessionId()
     setMessages([])
+    questionCount.current = 0
+    feedbackShown.current = false
+    setShowFeedback(false)
   }, [])
 
   const send = useCallback(async (query) => {
@@ -57,6 +65,12 @@ export function useChat() {
       if (!isGuardrail) {
         setSessionVersion(v => v + 1)
       }
+
+      questionCount.current += 1
+      if (questionCount.current >= FEEDBACK_TRIGGER_COUNT && !feedbackShown.current) {
+        feedbackShown.current = true
+        setShowFeedback(true)
+      }
     } catch (err) {
       setMessages(prev => [...prev, {
         role: 'bot',
@@ -73,12 +87,35 @@ export function useChat() {
     }
   }, [loading, userType])
 
+  const submitFeedback = useCallback(async (rating, comment) => {
+    try {
+      await sendFeedback({
+        user_id: userId.current,
+        session_id: sessionId.current,
+        user_type: userType,
+        rating,
+        comment,
+      })
+    } catch (err) {
+      console.error('[submitFeedback] failed:', err)
+    } finally {
+      setShowFeedback(false)
+    }
+  }, [userType])
+
+  const dismissFeedback = useCallback(() => {
+    setShowFeedback(false)
+  }, [])
+
   const newConversation = useCallback(() => {
     setUserType(null)
     sessionId.current = newSessionId()
     setMessages([])
     setLoading(false)
     setSlowServer(false)
+    questionCount.current = 0
+    feedbackShown.current = false
+    setShowFeedback(false)
   }, [])
 
   // Loads a past conversation from Cosmos and resumes it, badges/citations included.
@@ -131,5 +168,6 @@ export function useChat() {
     loadConversation, sendFaqAnswer,
     userId: userId.current,
     sessionVersion,
+    showFeedback, submitFeedback, dismissFeedback,
   }
 }

@@ -8,7 +8,7 @@ from agent.graph import app as agent_app
 from langchain_core.messages import HumanMessage, AIMessage
 from azure.cosmos import CosmosClient, exceptions, PartitionKey
 from datetime import datetime, timezone
-from config.settings import (DEMO_CREDENTIALS, MAX_LOGIN_ATTEMPTS, LOCKOUT_SECONDS, FAQ_SLOTS, FAQ_MIN_COUNT, COSMOS_CONNECTION_STRING, COSMOS_DATABASE, SESSIONS_CONTAINER, QUERYLOG_CONTAINER, SESSION_TTL_SECONDS, QUERYLOG_TTL_SECONDS)
+from config.settings import (DEMO_CREDENTIALS, MAX_LOGIN_ATTEMPTS, LOCKOUT_SECONDS, FAQ_SLOTS, FAQ_MIN_COUNT, COSMOS_CONNECTION_STRING, COSMOS_DATABASE, SESSIONS_CONTAINER, QUERYLOG_CONTAINER, SESSION_TTL_SECONDS, QUERYLOG_TTL_SECONDS, FEEDBACK_CONTAINER, FEEDBACK_TTL_SECONDS)
 import re
 import uuid
 import time
@@ -33,9 +33,11 @@ COSMOS_DATABASE          = COSMOS_DATABASE
 
 SESSIONS_CONTAINER  = SESSIONS_CONTAINER
 QUERYLOG_CONTAINER  = QUERYLOG_CONTAINER
+FEEDBACK_CONTAINER  = FEEDBACK_CONTAINER
 
 SESSION_TTL_SECONDS   = SESSION_TTL_SECONDS
 QUERYLOG_TTL_SECONDS  = QUERYLOG_TTL_SECONDS  # 15 days
+FEEDBACK_TTL_SECONDS  = FEEDBACK_TTL_SECONDS
 
 _cosmos_db = None
 _containers = {}
@@ -78,6 +80,10 @@ def get_sessions_container():
 
 def get_querylog_container():
     return get_container(QUERYLOG_CONTAINER, "/user_id", default_ttl=QUERYLOG_TTL_SECONDS)
+
+
+def get_feedback_container():
+    return get_container(FEEDBACK_CONTAINER, "/user_id", default_ttl=FEEDBACK_TTL_SECONDS)
 
 
 # ── Session helpers ───────────────────────────────────────────────────────────
@@ -259,6 +265,18 @@ class FaqItem(BaseModel):
     question: str
 
 
+class FeedbackRequest(BaseModel):
+    user_id: str
+    session_id: str
+    user_type: str
+    rating: int
+    comment: str = ""
+
+
+class FeedbackResponse(BaseModel):
+    success: bool
+
+
 # ── Query endpoint ────────────────────────────────────────────────────────────
 @api.post("/query")
 @limiter.limit("5/minute")
@@ -411,3 +429,25 @@ async def get_faq():
         print(f"[get_faq] query_log aggregation failed: {e}")
 
     return real_items[:FAQ_SLOTS]
+
+
+# ── Feedback endpoint ─────────────────────────────────────────────────────────
+@api.post("/feedback", response_model=FeedbackResponse)
+async def submit_feedback(body: FeedbackRequest):
+    if not 1 <= body.rating <= 5:
+        raise HTTPException(status_code=422, detail="rating must be between 1 and 5")
+    try:
+        container = get_feedback_container()
+        container.upsert_item({
+            "id":         str(uuid.uuid4()),
+            "user_id":    body.user_id,
+            "session_id": body.session_id,
+            "user_type":  body.user_type,
+            "rating":     body.rating,
+            "comment":    body.comment,
+            "timestamp":  datetime.now(timezone.utc).isoformat(),
+        })
+        return FeedbackResponse(success=True)
+    except Exception as e:
+        print(f"[submit_feedback] Cosmos write failed for user {body.user_id}: {e}")
+        return FeedbackResponse(success=False)

@@ -86,7 +86,7 @@ DEMO_CREDENTIALS = {
 }
 
 MAX_LOGIN_ATTEMPTS = 3
-LOCKOUT_SECONDS = 60  # 2.5 min
+LOCKOUT_SECONDS = 60  # 1.5 min
 
 # ── Cosmos DB (lazy init) ──────────────────────────────────────────────────
 COSMOS_CONNECTION_STRING = os.getenv("COSMOS_CONNECTION_STRING")
@@ -100,6 +100,9 @@ QUERYLOG_TTL_SECONDS  = 1296000  # 15 days
 
 FAQ_MIN_COUNT = 3
 FAQ_SLOTS = 5
+
+FEEDBACK_CONTAINER   = "feedback"
+FEEDBACK_TTL_SECONDS = 1296000  # 15 days
 
 # ── Near-duplicate filtering ───────────────────────────────────────────────
 NEAR_DUP_OVERLAP_THRESHOLD = 0.7

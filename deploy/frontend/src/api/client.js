@@ -49,3 +49,15 @@ export async function getFaq() {
   }
   return response.json()
 }
+
+export async function sendFeedback({ user_id, session_id, user_type, rating, comment }) {
+  const response = await fetch(`${BASE_URL}/feedback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id, session_id, user_type, rating, comment }),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
