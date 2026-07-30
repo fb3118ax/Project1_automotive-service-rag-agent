@@ -18,7 +18,16 @@ export async function sendQuery({ query, session_id, user_type, user_id }) {
   })
 
   if (!response.ok) {
-    throw new Error(`API error: ${response.status}`)
+    let detail = `API error: ${response.status}`
+    try {
+      const errBody = await response.json()
+      if (errBody?.detail) detail = errBody.detail
+    } catch {
+      // response wasn't JSON, fall back to the generic message above
+    }
+    const error = new Error(detail)
+    error.status = response.status
+    throw error
   }
 
   return response.json()

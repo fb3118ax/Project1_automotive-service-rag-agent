@@ -72,9 +72,13 @@ export function useChat() {
         setShowFeedback(true)
       }
     } catch (err) {
+      const content = err.status === 429
+        ? err.message
+        : 'Something went wrong. Please try again.'
+
       setMessages(prev => [...prev, {
         role: 'bot',
-        content: 'Something went wrong. Please try again.',
+        content,
         error: true,
         citations: [],
         confidence_score: null,

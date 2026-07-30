@@ -1,9 +1,10 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from fastapi.responses import JSONResponse
 from agent.graph import app as agent_app
 from langchain_core.messages import HumanMessage, AIMessage
 from azure.cosmos import CosmosClient, exceptions, PartitionKey
@@ -18,7 +19,14 @@ limiter = Limiter(key_func=get_remote_address)
 
 api = FastAPI()
 api.state.limiter = limiter
-api.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+@api.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "You've hit the limit of 5 queries per minute. Please wait a moment and try again."},
+    )
 
 api.add_middleware(
     CORSMiddleware,
