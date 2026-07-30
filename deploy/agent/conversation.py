@@ -19,6 +19,16 @@ LOW_CONFIDENCE_NOTE = {
 }
 
 UNGROUNDED_TAG = "[UNGROUNDED]"
+UNSUPPORTED_RESPONSE_PATTERNS = (
+    "isn't covered",
+    "is not covered",
+    "not covered",
+    "not available",
+    "doesn't mention",
+    "does not mention",
+    "couldn't find relevant information",
+    "no relevant content",
+)
 
 
 def conversation(state):
@@ -40,12 +50,16 @@ def conversation(state):
 
     citation_text = "\n".join([f"- Page {c['page']}" for c in state["citations"]])
 
-    GROUNDING_RULE = f"""IMPORTANT -If the manual context above does not contain the information needed to answer the question,
-                    prefix your entire response with the exact token {UNGROUNDED_TAG} (nothing before it, one space after),
-                    then tell the user plainly that like 'this specific information isn't covered in the vehicle's service manual'.
-                    Never say "the context you provided" or imply the user supplied the manual excerpts — the manual
-                    content comes from the system, not the user. Stop there — do not offer a general approach,
-                    a best guess, or steps drawn from outside the provided context, even if it seems helpful."""
+    GROUNDING_RULE = f"""IMPORTANT Rules:
+                    1. If the manual context clearly contains the answer, give a concise answer based only on that context.
+                    2. If the context is only partially related or does not explicitly state the answer, do not invent facts. Instead:
+                        - give a short, cautious response,
+                        - say that the manual context is limited or does not clearly provide the answer,
+                        - avoid offering general advice or assumptions.
+                    3. If confidence is low, don't fabricate a vague answer — say clearly the manual doesn't cover this.
+                    4. Do not mention the user supplied the context. Do not say "the context you provided". Speak as if the information comes from the vehicle manual.
+                    5. Keep the reply short, helpful, and conservative.
+                    6. Never provide outside knowledge or guesswork."""
     
     if user_type == "owner":
         system_prompt = f"""# Role -
@@ -102,12 +116,20 @@ def conversation(state):
 
     answer = response.choices[0].message.content.strip()
 
-    grounded = not answer.startswith(UNGROUNDED_TAG)
-    if not grounded:
+    lower_answer = answer.lower()
+    if answer.startswith(UNGROUNDED_TAG):
         answer = answer[len(UNGROUNDED_TAG):].strip()
-
-    if grounded and state["confidence_score"] < CONFIDENCE_THRESHOLD:
-        answer += LOW_CONFIDENCE_NOTE.get(user_type, LOW_CONFIDENCE_NOTE["owner"])
+        grounded = False
+    elif any(pattern in lower_answer for pattern in UNSUPPORTED_RESPONSE_PATTERNS):
+        grounded = False
+    elif state["confidence_score"] < CONFIDENCE_THRESHOLD:
+        answer = (
+            f"{answer.strip()}\n\n"
+            f"{LOW_CONFIDENCE_NOTE.get(user_type, LOW_CONFIDENCE_NOTE['owner'])}"
+        )
+        grounded = False
+    else:
+        grounded = True
 
     new_topic = state["query"]
     return {
