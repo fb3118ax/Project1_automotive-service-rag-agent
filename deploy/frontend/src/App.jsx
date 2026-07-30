@@ -6,6 +6,7 @@ import MessageBubble from './components/MessageBubble'
 import InputBar from './components/InputBar'
 import ModeSelect from './components/ModeSelect'
 import Login from './components/Login'
+import FeedbackModal from './components/FeedbackModal'
 
 function TypingIndicator() {
   return (
@@ -36,7 +37,7 @@ export default function App() {
     messages, loading, slowServer, userType,
     send, newConversation, selectMode,
     loadConversation, sendFaqAnswer, userId,
-    sessionVersion,
+    sessionVersion, showFeedback, submitFeedback, dismissFeedback,
   } = useChat()
   const bottomRef = useRef(null)
   const [authToken, setAuthToken] = useState(null)
@@ -108,6 +109,9 @@ export default function App() {
 
         <InputBar onSend={send} disabled={loading} />
       </div>
+      {showFeedback && (
+        <FeedbackModal onSubmit={submitFeedback} onDismiss={dismissFeedback} />
+      )}
     </div>
   )
 }
